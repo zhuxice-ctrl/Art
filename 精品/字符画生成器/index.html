@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- Google Analytics -->
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASCII Field — Image to ASCII Art</title>
+<meta name="description" content="Convert any image into typewriter-style ASCII art. Adjust resolution, brightness, contrast, and charset — then copy or download your creation.">
+
+<!-- Open Graph / Facebook -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://bubbbly.com/app/ascii-art.html">
+<meta property="og:title" content="ASCII Field — Image to ASCII Art">
+<meta property="og:description" content="Convert any image into typewriter-style ASCII art. Adjust resolution, brightness, contrast, and charset — then copy or download your creation.">
+<meta property="og:image" content="https://image.social/get?url=bubbbly.com/app/ascii-art.html">
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:url" content="https://bubbbly.com/app/ascii-art.html">
+<meta name="twitter:title" content="ASCII Field — Image to ASCII Art">
+<meta name="twitter:description" content="Convert any image into typewriter-style ASCII art. Adjust resolution, brightness, contrast, and charset — then copy or download your creation.">
+<meta name="twitter:image" content="https://image.social/get?url=bubbbly.com/app/ascii-art.html">
+
+<style>
+  :root{
+    --bg:#0b120c;
+    --panel:#111a13;
+    --panel2:#16221779;
+    --border:#2a3a2c;
+    --ink:#e9e4cf;
+    --ink-dim:#9aa58f;
+    --accent:#d8d2b4;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:
+      radial-gradient(1200px 800px at 70% -10%, #1a2a1c 0%, transparent 60%),
+      radial-gradient(900px 700px at 10% 110%, #14201a 0%, transparent 55%),
+      var(--bg);
+    color:var(--ink);
+    font-family:"Courier New", ui-monospace, monospace;
+    min-height:100vh;
+  }
+  header{
+    padding:28px 32px 18px;
+    border-bottom:1px solid var(--border);
+    display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;
+  }
+  header h1{font-size:20px;letter-spacing:.35em;font-weight:700;text-transform:uppercase}
+  header span{color:var(--ink-dim);font-size:12px;letter-spacing:.15em}
+  main{display:grid;grid-template-columns:280px 1fr;gap:0;min-height:calc(100vh - 78px)}
+  @media (max-width:860px){main{grid-template-columns:1fr}}
+
+  /* ---------- sidebar ---------- */
+  aside{
+    border-right:1px solid var(--border);
+    padding:22px;
+    background:var(--panel2);
+  }
+  .ctl{margin-bottom:20px}
+  .ctl label{
+    display:flex;justify-content:space-between;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--ink-dim);margin-bottom:8px;
+  }
+  .ctl label output{color:var(--accent)}
+  input[type=range]{
+    width:100%;appearance:none;height:2px;background:var(--border);outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    appearance:none;width:14px;height:14px;border-radius:50%;
+    background:var(--accent);border:2px solid var(--bg);cursor:pointer;
+  }
+  select, .btn{
+    width:100%;background:var(--panel);color:var(--ink);
+    border:1px solid var(--border);padding:9px 10px;
+    font-family:inherit;font-size:12px;letter-spacing:.08em;cursor:pointer;
+  }
+  select:focus{outline:1px solid var(--accent)}
+  .btn{text-align:center;text-transform:uppercase;letter-spacing:.2em;transition:all .15s}
+  .btn:hover{background:var(--accent);color:var(--bg)}
+  .btn-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .toggle{
+    display:flex;align-items:center;gap:10px;cursor:pointer;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-dim);
+    user-select:none;
+  }
+  .toggle input{display:none}
+  .toggle .box{
+    width:14px;height:14px;border:1px solid var(--border);background:var(--panel);
+    display:inline-flex;align-items:center;justify-content:center;font-size:11px;color:var(--accent);
+  }
+  .toggle input:checked + .box::after{content:"×"}
+  .divider{border-top:1px dashed var(--border);margin:22px 0}
+  #charsetInput{
+    width:100%;background:var(--panel);color:var(--ink);border:1px solid var(--border);
+    padding:8px 10px;font-family:inherit;font-size:13px;
+  }
+
+  /* ---------- stage ---------- */
+  .stage{padding:26px;display:flex;flex-direction:column;gap:18px}
+  #drop{
+    border:1px dashed var(--border);
+    min-height:200px;flex:0 0 auto;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+    color:var(--ink-dim);cursor:pointer;transition:all .2s;
+    padding:32px;text-align:center;
+  }
+  #drop.drag{border-color:var(--accent);color:var(--accent);background:#16221766}
+  #drop .big{font-size:28px;letter-spacing:.2em;color:var(--accent)}
+  #drop small{font-size:11px;letter-spacing:.15em}
+  #drop.hidden{display:none}
+
+  .panes{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media (max-width:1100px){.panes{grid-template-columns:1fr}}
+  .pane{
+    border:1px solid var(--border);background:var(--panel);
+    display:flex;flex-direction:column;min-height:0;
+  }
+  .pane h2{
+    font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--ink-dim);
+    padding:10px 14px;border-bottom:1px solid var(--border);font-weight:400;
+  }
+  .pane .body{padding:14px;display:flex;align-items:center;justify-content:center;overflow:auto}
+  #origImg{max-width:100%;max-height:70vh;display:block;filter:saturate(.9)}
+  #asciiCanvas{max-width:100%;max-height:70vh;image-rendering:auto;display:block}
+  .canvasWrap{position:relative;display:inline-block;max-width:100%;line-height:0;cursor:none}
+  #lensCanvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  .panes.hidden{display:none}
+  footer{padding:14px 32px;color:var(--ink-dim);font-size:11px;letter-spacing:.15em;border-top:1px solid var(--border)}
+  .credit{
+    position:fixed;bottom:14px;right:20px;z-index:10;
+    font-size:12px;letter-spacing:.08em;color:var(--ink-dim);
+    text-decoration:none;padding:8px 12px;
+    background:var(--panel);border:1px solid var(--border);
+    border-radius:4px;transition:color .15s,border-color .15s;
+  }
+  .credit:hover{color:var(--accent);border-color:var(--accent)}
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);
+    background:var(--accent);color:var(--bg);padding:10px 22px;font-size:12px;
+    letter-spacing:.2em;text-transform:uppercase;transition:transform .25s;pointer-events:none;
+  }
+  .toast.show{transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<header>
+  <h1>ASCII&nbsp;Field</h1>
+  <span>// image → typewriter ascii art</span>
+</header>
+
+<main>
+  <aside>
+    <div class="ctl">
+      <button class="btn" id="uploadBtn">⊕ Load Image</button>
+      <input type="file" id="fileInput" accept="image/*" hidden>
+    </div>
+
+    <div class="ctl">
+      <label>Resolution <output id="colsOut">120</output></label>
+      <input type="range" id="cols" min="40" max="300" value="120">
+    </div>
+
+    <div class="ctl">
+      <label>Brightness <output id="brightOut">0</output></label>
+      <input type="range" id="bright" min="-100" max="100" value="0">
+    </div>
+
+    <div class="ctl">
+      <label>Contrast <output id="contrastOut">1.0</output></label>
+      <input type="range" id="contrast" min="50" max="300" value="100">
+    </div>
+
+    <div class="ctl">
+      <label>Cutoff (hide dark) <output id="cutOut">25</output></label>
+      <input type="range" id="cutoff" min="0" max="100" value="25">
+    </div>
+
+    <div class="ctl">
+      <label>Charset</label>
+      <select id="charsetSel">
+        <option value=" .,:;o0O8@" selected>Dotted — .,:;o0O8@</option>
+        <option value=" .'`^:!|/(1{[#%@">Sketch — .'`^:!|/#%@</option>
+        <option value=" .-=+*#%@">Classic — .-=+*#%@</option>
+        <option value=" ░▒▓█">Blocks — ░▒▓█</option>
+        <option value=" .·•●">Dots — .·•●</option>
+        <option value="custom">Custom…</option>
+      </select>
+    </div>
+
+    <div class="ctl" id="customWrap" style="display:none">
+      <label>Custom (dark → bright)</label>
+      <input type="text" id="charsetInput" value=" .,:;o0O8@">
+    </div>
+
+    <div class="ctl">
+      <label>Ink Color</label>
+      <select id="colorSel">
+        <option value="#e9e4cf" selected>Cream</option>
+        <option value="#c9f7c4">Pale Green</option>
+        <option value="#ffffff">White</option>
+        <option value="#ffb45e">Amber</option>
+        <option value="#7fd4ff">Cyan</option>
+        <option value="source">Source colors</option>
+      </select>
+    </div>
+
+    <div class="ctl">
+      <label>Lens Liquidness <output id="liquidOut">60</output></label>
+      <input type="range" id="liquid" min="0" max="100" value="60">
+    </div>
+
+    <div class="ctl">
+      <label class="toggle"><input type="checkbox" id="invert"><span class="box"></span> Invert tones</label>
+    </div>
+    <div class="ctl">
+      <label class="toggle"><input type="checkbox" id="bgImage"><span class="box"></span> Faint photo backdrop</label>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="btn-row">
+      <button class="btn" id="downloadBtn">↓ PNG</button>
+      <button class="btn" id="copyBtn">⧉ Text</button>
+    </div>
+  </aside>
+
+  <section class="stage">
+    <div id="drop">
+      <div class="big">[ + ]</div>
+      <div>DROP AN IMAGE HERE</div>
+      <small>or click to browse · paste (Ctrl+V) also works</small>
+    </div>
+
+    <div class="panes hidden" id="panes">
+      <div class="pane">
+        <h2>Original</h2>
+        <div class="body"><img id="origImg" alt="original"></div>
+      </div>
+      <div class="pane">
+        <h2>ASCII · hover for liquid-glass color loupe</h2>
+        <div class="body">
+          <div class="canvasWrap" id="canvasWrap">
+            <canvas id="asciiCanvas"></canvas>
+            <canvas id="lensCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>tip: raise CUTOFF so dark areas stay empty — hover the ascii to reveal true colors through the liquid glass · scroll to zoom the lens.</footer>
+<a class="credit" href="https://typingmind.com?utm_source=ascii-art" target="_blank" rel="noopener noreferrer">Built with Claude Fable via TypingMind 🩷</a>
+<div class="toast" id="toast">Copied</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const fileInput=$('fileInput'), drop=$('drop'), panes=$('panes'),
+        origImg=$('origImg'), canvas=$('asciiCanvas'), ctx=canvas.getContext('2d');
+  const lensCanvas=$('lensCanvas'), lctx=lensCanvas.getContext('2d');
+  const colorCanvas=document.createElement('canvas'), cctx=colorCanvas.getContext('2d');
+
+  // liquid-glass refraction buffers (resized in drawLens to match on-screen lens size)
+  let LENS_N=220;
+  const sampleC=document.createElement('canvas');
+  const sctx2=sampleC.getContext('2d',{willReadFrequently:true});
+  const lensBuf=document.createElement('canvas');
+  const lbctx=lensBuf.getContext('2d');
+  sampleC.width=sampleC.height=lensBuf.width=lensBuf.height=LENS_N;
+
+  let img = null;
+  let lastText = '';
+  let mouse=null, smooth=null, lensZoom=1.8, rimAngle=0, rafId=null;
+  let wobblePhase=0, vel={x:0,y:0};
+
+  // ---- controls wiring ----
+  const live = [
+    ['cols','colsOut', v=>v],
+    ['bright','brightOut', v=>v],
+    ['contrast','contrastOut', v=>(v/100).toFixed(1)],
+    ['cutoff','cutOut', v=>v],
+  ];
+  live.forEach(([id,out,fmt])=>{
+    $(id).addEventListener('input', ()=>{ $(out).textContent = fmt($(id).value); render(); });
+  });
+  $('liquid').addEventListener('input', ()=>{ $('liquidOut').textContent=$('liquid').value; });
+  ['invert','bgImage'].forEach(id=>$(id).addEventListener('change', render));
+  $('colorSel').addEventListener('change', render);
+  $('charsetSel').addEventListener('change', ()=>{
+    $('customWrap').style.display = $('charsetSel').value==='custom' ? 'block':'none';
+    render();
+  });
+  $('charsetInput').addEventListener('input', render);
+
+  // ---- loading images ----
+  $('uploadBtn').addEventListener('click', ()=>fileInput.click());
+  drop.addEventListener('click', ()=>fileInput.click());
+  fileInput.addEventListener('change', e=>{ if(e.target.files[0]) loadFile(e.target.files[0]); });
+
+  ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev, e=>{e.preventDefault();drop.classList.add('drag');}));
+  ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev, e=>{e.preventDefault();drop.classList.remove('drag');}));
+  drop.addEventListener('drop', e=>{
+    const f=[...e.dataTransfer.files].find(f=>f.type.startsWith('image/'));
+    if(f) loadFile(f);
+  });
+  window.addEventListener('paste', e=>{
+    const item=[...(e.clipboardData?.items||[])].find(i=>i.type.startsWith('image/'));
+    if(item) loadFile(item.getAsFile());
+  });
+
+  function loadImage(src){
+    const im=new Image();
+    im.onload=async()=>{
+      try{ await im.decode(); }catch{}
+      img=im; origImg.src=src;
+      drop.classList.add('hidden'); panes.classList.remove('hidden');
+      render();
+    };
+    im.src=src;
+  }
+  function loadFile(file){ loadImage(URL.createObjectURL(file)); }
+
+  (async()=>{
+    const url=new URL('assets/butterfly.webp', window.location.href).href;
+    if(location.protocol==='file:'){
+      if(!window.ASCII_ART_SEED){
+        await new Promise((ok,no)=>{
+          const s=document.createElement('script');
+          s.src='ascii-art-seed.js'; s.onload=ok; s.onerror=no;
+          document.head.appendChild(s);
+        });
+      }
+      return loadImage(window.ASCII_ART_SEED);
+    }
+    try{
+      const res=await fetch(url);
+      if(!res.ok) throw new Error('fetch failed');
+      loadFile(await res.blob());
+    }catch{
+      loadImage(url);
+    }
+  })();
+
+  // ---- core render ----
+  function render(){
+    if(!img) return;
+
+    const cols = +$('cols').value;
+    const charAspect = 0.55;
+    const rows = Math.max(2, Math.round(cols * (img.height/img.width) * charAspect));
+
+    const s=document.createElement('canvas');
+    s.width=cols; s.height=rows;
+    const sc=s.getContext('2d', {willReadFrequently:true});
+    sc.drawImage(img,0,0,cols,rows);
+    const data=sc.getImageData(0,0,cols,rows).data;
+
+    let charset = $('charsetSel').value==='custom' ? ($('charsetInput').value||' .@') : $('charsetSel').value;
+    const invert=$('invert').checked;
+    const bright=+$('bright').value/100;
+    const contrast=+$('contrast').value/100;
+    const cutoff=+$('cutoff').value/100;
+    const inkMode=$('colorSel').value;
+
+    const cell=10, scale=2;
+    canvas.width=cols*cell*scale*charAspect*1.8|0;
+    const cw = canvas.width/cols;
+    const ch = cw/charAspect*0.95;
+    canvas.height=rows*ch|0;
+
+    // color twin (revealed through the lens) + lens overlay sizing
+    colorCanvas.width=canvas.width; colorCanvas.height=canvas.height;
+    lensCanvas.width=canvas.width; lensCanvas.height=canvas.height;
+    cctx.fillStyle='#0a0f0a';
+    cctx.fillRect(0,0,colorCanvas.width,colorCanvas.height);
+    cctx.globalAlpha=0.35;
+    cctx.drawImage(img,0,0,colorCanvas.width,colorCanvas.height);
+    cctx.globalAlpha=1;
+
+    ctx.fillStyle='#0a0f0a';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    if($('bgImage').checked){
+      ctx.globalAlpha=0.22;
+      ctx.filter='blur(3px) saturate(0.7) brightness(0.6)';
+      ctx.drawImage(img,0,0,canvas.width,canvas.height);
+      ctx.filter='none';
+      ctx.globalAlpha=1;
+    }
+
+    ctx.font = `${Math.floor(ch*0.92)}px "Courier New", monospace`;
+    ctx.textBaseline='middle';
+    ctx.textAlign='center';
+    cctx.font=ctx.font;
+    cctx.textBaseline='middle';
+    cctx.textAlign='center';
+
+    const lines=[];
+    for(let y=0;y<rows;y++){
+      let line='';
+      for(let x=0;x<cols;x++){
+        const i=(y*cols+x)*4;
+        const r=data[i],g=data[i+1],b=data[i+2];
+        let lum=(0.2126*r+0.7152*g+0.0722*b)/255;
+        if(invert) lum=1-lum;
+        lum=(lum-0.5)*contrast+0.5+bright;
+        lum=Math.min(1,Math.max(0,lum));
+
+        if(lum<=cutoff){ line+=' '; continue; }
+        const t=(lum-cutoff)/(1-cutoff);
+        const idx=Math.min(charset.length-1, Math.floor(t*charset.length));
+        const chch=charset[idx];
+        line+=chch;
+        if(chch===' ') continue;
+
+        ctx.fillStyle = inkMode==='source'
+          ? `rgb(${Math.min(255,r*1.3+40)|0},${Math.min(255,g*1.3+40)|0},${Math.min(255,b*1.3+40)|0})`
+          : inkMode;
+        ctx.globalAlpha = 0.55 + 0.45*t;
+        ctx.fillText(chch, x*cw+cw/2, y*ch+ch/2);
+
+        // true-color twin for the loupe
+        cctx.fillStyle=`rgb(${Math.min(255,r*1.25+25)|0},${Math.min(255,g*1.25+25)|0},${Math.min(255,b*1.25+25)|0})`;
+        cctx.globalAlpha = 0.7 + 0.3*t;
+        cctx.fillText(chch, x*cw+cw/2, y*ch+ch/2);
+      }
+      lines.push(line.replace(/\s+$/,''));
+    }
+    ctx.globalAlpha=1;
+    cctx.globalAlpha=1;
+    lastText=lines.join('\n');
+  }
+
+  // ---- liquid-glass color loupe ----
+  const wrap=$('canvasWrap');
+  wrap.addEventListener('mousemove', e=>{
+    if(!img) return;
+    const rect=canvas.getBoundingClientRect();
+    mouse={
+      x:(e.clientX-rect.left)*canvas.width/rect.width,
+      y:(e.clientY-rect.top)*canvas.height/rect.height
+    };
+    if(!smooth) smooth={...mouse};
+    if(!rafId) rafId=requestAnimationFrame(tick);
+  });
+  wrap.addEventListener('mouseleave', ()=>{ mouse=null; });
+  wrap.addEventListener('wheel', e=>{
+    if(!mouse) return;
+    e.preventDefault();
+    lensZoom=Math.min(4, Math.max(1.2, lensZoom*(e.deltaY<0?1.1:0.9)));
+  }, {passive:false});
+
+  function tick(){
+    lctx.clearRect(0,0,lensCanvas.width,lensCanvas.height);
+    if(!mouse){ rafId=null; smooth=null; return; }
+    // springy follow → gives the glass its "liquid" lag & wobble
+    const liq=+$('liquid').value/100;
+    const ease=0.38-0.26*liq;
+    vel.x=(mouse.x-smooth.x)*ease;
+    vel.y=(mouse.y-smooth.y)*ease;
+    smooth.x+=vel.x; smooth.y+=vel.y;
+    rimAngle+=0.005;
+    wobblePhase+=0.10+Math.hypot(vel.x,vel.y)*0.002;
+    drawLens(smooth.x, smooth.y, liq);
+    rafId=requestAnimationFrame(tick);
+  }
+
+  function drawLens(mx,my,liq){
+    const r=Math.max(70, Math.min(lensCanvas.width, lensCanvas.height)*0.17);
+    const z=lensZoom;
+    const H=r*1.35;                 // world half-size captured around lens
+    // buffer resolution ≥ the lens's physical on-screen pixel size, so the glass stays sharp
+    const rect=canvas.getBoundingClientRect();
+    const dpr=window.devicePixelRatio||1;
+    const need=Math.max(220, Math.min(520, (2*H*(rect.width/canvas.width)*dpr)|0));
+    if(need!==LENS_N){
+      LENS_N=need;
+      sampleC.width=sampleC.height=lensBuf.width=lensBuf.height=need;
+    }
+    const N=LENS_N, half=N/2;
+    const rOverH=r/H;
+
+    // squash/stretch from motion (liquid blob deformation)
+    const sp=Math.hypot(vel.x,vel.y);
+    const stretch=Math.min(0.18, sp/(r*6))*liq;
+    const mAng=Math.atan2(vel.y,vel.x);
+    const wob=0.025*liq;            // breathing wobble amplitude
+
+    // --- capture region around cursor ---
+    sctx2.setTransform(1,0,0,1,0,0);
+    sctx2.fillStyle='#0a0f0a';
+    sctx2.fillRect(0,0,N,N);
+    const k=N/(2*H);
+    sctx2.setTransform(k,0,0,k,-(mx-H)*k,-(my-H)*k);
+    sctx2.drawImage(colorCanvas,0,0);
+    sctx2.setTransform(1,0,0,1,0,0);
+
+    // --- per-pixel liquid refraction + chromatic aberration ---
+    const src=sctx2.getImageData(0,0,N,N).data;
+    const out=lbctx.createImageData(N,N);
+    const dst=out.data;
+    const cosM=Math.cos(mAng), sinM=Math.sin(mAng);
+    for(let j=0;j<N;j++){
+      const v0=(j+0.5-half)/half;
+      for(let i=0;i<N;i++){
+        const u0=(i+0.5-half)/half;
+        // wobbling, motion-stretched boundary radius for this direction
+        const dirA=Math.atan2(v0,u0);
+        const along=(u0*cosM+v0*sinM);
+        let edge=1 + wob*Math.sin(3*dirA+wobblePhase) + wob*0.6*Math.sin(5*dirA-wobblePhase*1.3);
+        edge += stretch*along;       // stretch toward motion direction
+        const d=Math.sqrt(u0*u0+v0*v0)/edge;
+        const o=(j*N+i)*4;
+        if(d>=1){ dst[o+3]=0; continue; }
+        let t=(d-0.62)/0.38; if(t<0)t=0; t*=t;          // rim-bend factor
+        const inv=d>0?1/(Math.sqrt(u0*u0+v0*v0)):0;
+        for(let c=0;c<3;c++){
+          const ca=c===0?0:(c===1?0.014:0.030);          // chromatic fringe
+          let g=(d/z)*(1-0.10*(1-d*d));                  // bulged center magnification
+          g=g+(d*1.10-g)*t;                              // strong bend near rim
+          g*=1+ca*t;
+          const s=g*rOverH*half*edge;
+          let sx=(half + (u0*inv)*s)|0;
+          let sy=(half + (v0*inv)*s)|0;
+          if(sx<0)sx=0; else if(sx>N-1)sx=N-1;
+          if(sy<0)sy=0; else if(sy>N-1)sy=N-1;
+          dst[o+c]=src[(sy*N+sx)*4+c]+12*t;              // slight frosted lift at the rim only
+        }
+        dst[o+3]= d>0.96 ? (255*(1-d)/0.04)|0 : 255;
+      }
+    }
+    lbctx.putImageData(out,0,0);
+
+    // --- soft drop shadow under the glass ---
+    lctx.save();
+    const sh=lctx.createRadialGradient(mx+r*0.04,my+r*0.10,r*0.55,mx+r*0.04,my+r*0.10,r*1.18);
+    sh.addColorStop(0,'rgba(0,0,0,0.34)');
+    sh.addColorStop(1,'rgba(0,0,0,0)');
+    lctx.fillStyle=sh;
+    lctx.beginPath(); lctx.arc(mx+r*0.04,my+r*0.10,r*1.18,0,Math.PI*2); lctx.fill();
+    lctx.restore();
+
+    // --- the refracted liquid glass ---
+    lctx.drawImage(lensBuf,mx-r,my-r,2*r,2*r);
+
+    // --- glass shading: specular highlight, ambient dark edge, sheen ---
+    lctx.save();
+    lctx.beginPath(); lctx.arc(mx,my,r*(1+wob+stretch),0,Math.PI*2); lctx.clip();
+    const g1=lctx.createRadialGradient(mx-r*0.45,my-r*0.5,r*0.04,mx-r*0.28,my-r*0.32,r*0.7);
+    g1.addColorStop(0,'rgba(255,255,255,0.16)');
+    g1.addColorStop(0.35,'rgba(255,255,255,0.04)');
+    g1.addColorStop(1,'rgba(255,255,255,0)');
+    lctx.fillStyle=g1; lctx.fillRect(mx-r,my-r,2*r,2*r);
+    const g2=lctx.createRadialGradient(mx,my,r*0.55,mx,my,r);
+    g2.addColorStop(0,'rgba(0,0,0,0)');
+    g2.addColorStop(0.8,'rgba(0,0,0,0)');
+    g2.addColorStop(1,'rgba(0,0,0,0.30)');
+    lctx.fillStyle=g2; lctx.fillRect(mx-r,my-r,2*r,2*r);
+    // curved top sheen streak
+    lctx.beginPath();
+    lctx.ellipse(mx-r*0.05,my-r*0.58,r*0.55,r*0.16,-0.18,0,Math.PI*2);
+    const g3=lctx.createLinearGradient(mx,my-r*0.8,mx,my-r*0.34);
+    g3.addColorStop(0,'rgba(255,255,255,0.34)');
+    g3.addColorStop(1,'rgba(255,255,255,0)');
+    lctx.fillStyle=g3; lctx.fill();
+    // small bottom counter-glint
+    lctx.beginPath();
+    lctx.ellipse(mx+r*0.3,my+r*0.62,r*0.22,r*0.07,0.4,0,Math.PI*2);
+    lctx.fillStyle='rgba(255,255,255,0.10)'; lctx.fill();
+    lctx.restore();
+
+    // --- glass edge: bright hairline + soft inner gradient band (no hard rim) ---
+    const edgeR=r*(1+wob*0.5+stretch*0.5);
+    lctx.lineWidth=Math.max(1.2,r*0.018);
+    lctx.strokeStyle='rgba(255,255,255,0.7)';
+    lctx.beginPath(); lctx.arc(mx,my,edgeR,0,Math.PI*2); lctx.stroke();
+    lctx.lineWidth=r*0.06;
+    const rim=lctx.createLinearGradient(mx-r,my-r,mx+r,my+r);
+    rim.addColorStop(0,'rgba(255,255,255,0.32)');
+    rim.addColorStop(0.5,'rgba(255,255,255,0.05)');
+    rim.addColorStop(1,'rgba(255,255,255,0.28)');
+    lctx.strokeStyle=rim;
+    lctx.beginPath(); lctx.arc(mx,my,edgeR*0.965,0,Math.PI*2); lctx.stroke();
+
+    // --- rotating label etched into the glass ---
+    const label='LIQUID GLASS \u00B7 '+z.toFixed(1)+'\u00D7 COLOR LOUPE \u00B7 SCROLL TO ZOOM \u00B7 ';
+    lctx.fillStyle='rgba(255,255,255,0.45)';
+    lctx.font=`${Math.max(8,Math.floor(r*0.072))}px "Courier New", monospace`;
+    lctx.textAlign='center'; lctx.textBaseline='middle';
+    const n=label.length;
+    for(let i=0;i<n;i++){
+      const a=-rimAngle + i*Math.PI*2/n - Math.PI/2;
+      lctx.save();
+      lctx.translate(mx+Math.cos(a)*r*0.87, my+Math.sin(a)*r*0.87);
+      lctx.rotate(a+Math.PI/2);
+      lctx.fillText(label[i],0,0);
+      lctx.restore();
+    }
+
+    // --- tiny crosshair ---
+    lctx.strokeStyle='rgba(255,255,255,0.7)';
+    lctx.lineWidth=Math.max(1,r*0.014);
+    const c=r*0.06;
+    lctx.beginPath();
+    lctx.moveTo(mx-c,my); lctx.lineTo(mx+c,my);
+    lctx.moveTo(mx,my-c); lctx.lineTo(mx,my+c);
+    lctx.stroke();
+  }
+
+  // ---- export ----
+  $('downloadBtn').addEventListener('click', ()=>{
+    if(!img) return toast('Load an image first');
+    const a=document.createElement('a');
+    a.download='ascii-art.png';
+    a.href=canvas.toDataURL('image/png');
+    a.click();
+  });
+  $('copyBtn').addEventListener('click', async ()=>{
+    if(!lastText) return toast('Load an image first');
+    try{ await navigator.clipboard.writeText(lastText); toast('Text copied'); }
+    catch{ toast('Copy failed'); }
+  });
+
+  function toast(msg){
+    const t=$('toast'); t.textContent=msg; t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'),1500);
+  }
+})();
+</script>
+</body>
+</html>
