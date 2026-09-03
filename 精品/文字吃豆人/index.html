@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PAC-TEXT</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Instrument+Serif:ital@0;1&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a0f; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  #hint {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    font: 400 11px/1 'Space Mono', monospace;
+    color: rgba(255,255,255,0.15); z-index: 20; pointer-events: none;
+    white-space: nowrap; transition: opacity 0.6s;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hint">Arrow keys / WASD to move</div>
+<script type="module">
+let prepareWithSegments, layoutNextLine
+try {
+  const mod = await import('https://esm.sh/@chenglou/pretext@0.0.3')
+  prepareWithSegments = mod.prepareWithSegments
+  layoutNextLine = mod.layoutNextLine
+} catch (e) {
+  console.warn('Pretext load failed', e)
+}
+
+const TEXT = `The web renders text through a pipeline designed thirty years ago for static documents. A browser loads a font, shapes the text into glyphs, measures their combined width, determines where lines break, and positions each line vertically. Every step depends on the previous one. Every step requires the rendering engine to consult its internal layout tree — a structure so expensive to maintain that browsers guard access to it behind synchronous reflow barriers that can freeze the main thread for tens of milliseconds at a time. For a paragraph in a blog post, this pipeline is invisible. The browser loads, lays out, and paints before the reader's eye has traveled from the address bar to the first word. But the web is no longer a collection of static documents. It is a platform for applications, and those applications need to know about text in ways the original pipeline never anticipated. A messaging application needs to know the exact height of every message bubble before rendering a virtualized list. A masonry layout needs the height of every card to position them without overlap. An editorial page needs text to flow around images, advertisements, and interactive elements. A responsive dashboard needs to resize and reflow text in real time as the user drags a panel divider. Every one of these operations requires text measurement. And every text measurement on the web today requires a synchronous layout reflow. The cost is devastating. Measuring the height of a single text block forces the browser to recalculate the position of every element on the page. When you measure five hundred text blocks in sequence, you trigger five hundred full layout passes. This pattern, known as layout thrashing, is the single largest source of jank on the modern web. Chrome DevTools will flag it with angry red bars. Lighthouse will dock your performance score. But the developer has no alternative. CSS provides no API for computing text height without rendering it. The information is locked behind the DOM, and the DOM makes you pay for every answer. Developers have invented increasingly desperate workarounds. Estimated heights replace real measurements with guesses, causing content to visibly jump when the guess is wrong. The CSS Shapes specification was supposed to bring magazine-style text wrap to the web. It allows text to flow around a defined shape. On paper, it was the answer. In practice, it is remarkably limited. Pretext changes everything. It implements its own text measurement logic using the browser's own font engine as ground truth. The prepare function does the one-time work: normalize whitespace, segment the text, apply glue rules, measure the segments with canvas, and return an opaque handle. The layout function is the cheap hot path after that: pure arithmetic over cached widths. No DOM measurement. No layout reflow. No synchronous blocking. Just math. The result is text layout that runs in microseconds instead of milliseconds, enabling real-time text reflow at sixty frames per second. The editorial layouts we see in print magazines — text flowing around photographs, pull quotes interrupting the column, multiple columns with seamless text handoff — have remained out of reach for the web. Not because they are conceptually difficult, but because the performance cost of implementing them with DOM measurement makes them impractical. Pretext makes them trivial. A full editorial engine with animated obstacles, multi-column flow, and pull quotes can run at sixty frames per second with zero DOM reads. The text reflows every frame, wrapping around draggable orbs, adjusting column breaks, and repositioning pull quotes, all through pure arithmetic. This is not an incremental improvement. It is a fundamental shift in what is possible with text on the web. Typography has always been the invisible architecture of communication. Every book you have read, every sign you have followed, every interface you have navigated was shaped by decisions about type. The choice of typeface, the width of the measure, the rhythm of the leading — these are not decorative flourishes. They are the structural engineering of readability. And yet on the web, the most text-rich medium ever created, we have fewer tools for working with text than a typesetter had in 1970. We cannot even measure a paragraph without causing the entire page to reflow. Pretext is the beginning of a different story. One where text is not a black box managed by the browser, but a first-class citizen that applications can reason about, measure, and lay out with the same precision they bring to every other part of their interface. The paragraph is no longer a mystery. It is just math.`
+
+const canvas = document.getElementById('c')
+const ctx = canvas.getContext('2d')
+const hintEl = document.getElementById('hint')
+
+let dpr, W, H
+let prepared = null
+let needsPrepare = true
+
+const FONT_SIZE = 15
+const LINE_H = 22
+const FONT = `${FONT_SIZE}px "Space Mono", monospace`
+const PADDING = 32
+
+function resize() {
+  dpr = window.devicePixelRatio || 1
+  W = window.innerWidth; H = window.innerHeight
+  canvas.width = W * dpr; canvas.height = H * dpr
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px'
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  needsPrepare = true
+}
+window.addEventListener('resize', resize)
+resize()
+
+async function prepareText() {
+  if (!prepareWithSegments) return
+  await document.fonts.load(FONT)
+  prepared = prepareWithSegments(TEXT, FONT)
+  needsPrepare = false
+}
+prepareText()
+
+const DIRS = [{ dx: 1, dy: 0 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 0, dy: -1 }]
+const DIR_ANGLES = [0, Math.PI / 2, Math.PI, -Math.PI / 2]
+
+const GHOST_COLORS = [
+  [255, 60, 60],
+  [255, 184, 255],
+  [0, 245, 255],
+  [255, 184, 82],
+]
+
+let pacman = { x: 0, y: 0, dir: 0, nextDir: 0, speed: 100, mouth: 0, mouthDir: 1 }
+let ghosts = []
+let gameStarted = false
+
+let explosions = []
+let shakeTimer = 0
+let shakeIntensity = 0
+
+function spawnExplosion(x, y, color) {
+  const particles = []
+  const symbols = ['#', '*', '!', '@', '&', '%', '?', '~', '^', '+', 'BOOM', 'POW', 'ZAP']
+  for (let i = 0; i < 40; i++) {
+    const angle = Math.random() * Math.PI * 2
+    const speed = 60 + Math.random() * 200
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 0.6 + Math.random() * 0.6,
+      maxLife: 0.6 + Math.random() * 0.6,
+      size: 6 + Math.random() * 14,
+      char: symbols[Math.floor(Math.random() * symbols.length)],
+      r: color[0], g: color[1], b: color[2],
+      rot: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - 0.5) * 12,
+    })
+  }
+  for (let ring = 0; ring < 3; ring++) {
+    const ringR = 10 + ring * 18
+    for (let i = 0; i < 12; i++) {
+      const angle = (i / 12) * Math.PI * 2
+      particles.push({
+        x: x + Math.cos(angle) * ringR,
+        y: y + Math.sin(angle) * ringR,
+        vx: Math.cos(angle) * (80 + ring * 40),
+        vy: Math.sin(angle) * (80 + ring * 40),
+        life: 0.3 + ring * 0.15,
+        maxLife: 0.3 + ring * 0.15,
+        size: 3 + Math.random() * 4,
+        char: '·',
+        r: 255, g: 255, b: 220,
+        rot: 0, rotSpeed: 0,
+      })
+    }
+  }
+  explosions.push({ particles, age: 0 })
+  shakeTimer = 0.4
+  shakeIntensity = 10
+}
+
+function updateExplosions(dt) {
+  for (const ex of explosions) {
+    ex.age += dt
+    for (const p of ex.particles) {
+      p.x += p.vx * dt
+      p.y += p.vy * dt
+      p.vx *= 0.96
+      p.vy *= 0.96
+      p.vy += 30 * dt
+      p.life -= dt
+      p.rot += p.rotSpeed * dt
+    }
+  }
+  explosions = explosions.filter(ex => ex.particles.some(p => p.life > 0))
+  if (shakeTimer > 0) shakeTimer -= dt
+}
+
+function drawExplosions() {
+  ctx.save()
+  for (const ex of explosions) {
+    for (const p of ex.particles) {
+      if (p.life <= 0) continue
+      const t = p.life / p.maxLife
+      const alpha = t * t
+      ctx.save()
+      ctx.translate(p.x, p.y)
+      ctx.rotate(p.rot)
+      ctx.font = `bold ${p.size}px "Space Mono", monospace`
+      ctx.fillStyle = `rgba(${p.r},${p.g},${p.b},${alpha})`
+      ctx.shadowColor = `rgba(${p.r},${p.g},${p.b},${alpha * 0.6})`
+      ctx.shadowBlur = 8
+      ctx.fillText(p.char, 0, 0)
+      ctx.shadowBlur = 0
+      ctx.restore()
+    }
+  }
+  ctx.restore()
+}
+
+let respawnTimer = 0
+
+function checkCollisions() {
+  if (respawnTimer > 0 || !gameStarted) return
+  for (let gi = 0; gi < ghosts.length; gi++) {
+    const g = ghosts[gi]
+    const dx = pacman.x - g.x
+    const dy = pacman.y - g.y
+    const dist = Math.sqrt(dx * dx + dy * dy)
+    if (dist < 28) {
+      const midX = (pacman.x + g.x) / 2
+      const midY = (pacman.y + g.y) / 2
+      spawnExplosion(midX, midY, g.color)
+      respawnTimer = 1.5
+      pacman.x = -100
+      pacman.y = -100
+      g.x = -200
+      g.y = -200
+      return
+    }
+  }
+}
+
+function updateRespawn(dt) {
+  if (respawnTimer <= 0) return
+  respawnTimer -= dt
+  if (respawnTimer <= 0) {
+    pacman.x = W / 2
+    pacman.y = H / 2
+    for (let gi = 0; gi < ghosts.length; gi++) {
+      const angle = (gi / ghosts.length) * Math.PI * 2
+      ghosts[gi].x = W / 2 + Math.cos(angle) * 250
+      ghosts[gi].y = H / 2 + Math.sin(angle) * 250
+    }
+  }
+}
+
+function initPositions() {
+  pacman.x = W / 2
+  pacman.y = H / 2
+  ghosts = GHOST_COLORS.map((c, i) => ({
+    x: W * 0.2 + (W * 0.6 / 3) * i,
+    y: H * 0.3,
+    vx: (Math.random() - 0.5) * 120,
+    vy: (Math.random() - 0.5) * 120,
+    color: c,
+    dir: Math.floor(Math.random() * 4),
+    turnTimer: 2 + Math.random() * 3,
+  }))
+}
+initPositions()
+
+const keys = new Set()
+window.addEventListener('keydown', e => {
+  keys.add(e.key)
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault()
+  if (e.key === 'ArrowRight' || e.key === 'd') pacman.nextDir = 0
+  if (e.key === 'ArrowDown'  || e.key === 's') pacman.nextDir = 1
+  if (e.key === 'ArrowLeft'  || e.key === 'a') pacman.nextDir = 2
+  if (e.key === 'ArrowUp'    || e.key === 'w') pacman.nextDir = 3
+  if (!gameStarted) { gameStarted = true; hintEl.style.opacity = '0' }
+})
+window.addEventListener('keyup', e => keys.delete(e.key))
+
+let touchStartX = 0, touchStartY = 0
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault()
+  touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY
+  if (!gameStarted) { gameStarted = true; hintEl.style.opacity = '0' }
+}, { passive: false })
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault()
+  const dx = e.touches[0].clientX - touchStartX, dy = e.touches[0].clientY - touchStartY
+  if (Math.abs(dx) + Math.abs(dy) < 20) return
+  if (Math.abs(dx) > Math.abs(dy)) pacman.nextDir = dx > 0 ? 0 : 2
+  else pacman.nextDir = dy > 0 ? 1 : 3
+  touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY
+}, { passive: false })
+
+function updatePacman(dt) {
+  if (!gameStarted) return
+  pacman.dir = pacman.nextDir
+  const d = DIRS[pacman.dir]
+  pacman.x += d.dx * pacman.speed * dt
+  pacman.y += d.dy * pacman.speed * dt
+  if (pacman.x < -20) pacman.x = W + 20
+  if (pacman.x > W + 20) pacman.x = -20
+  if (pacman.y < -20) pacman.y = H + 20
+  if (pacman.y > H + 20) pacman.y = -20
+  pacman.mouth += pacman.mouthDir * dt * 8
+  if (pacman.mouth > 0.38) pacman.mouthDir = -1
+  if (pacman.mouth < 0.02) pacman.mouthDir = 1
+}
+
+function updateGhosts(dt) {
+  for (let gi = 0; gi < ghosts.length; gi++) {
+    const g = ghosts[gi]
+    const speed = 55 + gi * 6
+
+    if (gameStarted) {
+      const dx = pacman.x - g.x
+      const dy = pacman.y - g.y
+      const dist = Math.sqrt(dx * dx + dy * dy)
+      if (dist > 1) {
+        g.x += (dx / dist) * speed * dt
+        g.y += (dy / dist) * speed * dt
+      }
+      if (Math.abs(dx) > Math.abs(dy)) g.dir = dx > 0 ? 0 : 2
+      else g.dir = dy > 0 ? 1 : 3
+    } else {
+      g.turnTimer -= dt
+      if (g.turnTimer <= 0) {
+        g.turnTimer = 2 + Math.random() * 3
+        g.dir = Math.floor(Math.random() * 4)
+      }
+      const d = DIRS[g.dir]
+      g.x += d.dx * 30 * dt
+      g.y += d.dy * 30 * dt
+    }
+
+    if (g.x < -20) g.x = W + 20
+    if (g.x > W + 20) g.x = -20
+    if (g.y < -20) g.y = H + 20
+    if (g.y > H + 20) g.y = -20
+  }
+}
+
+function circleClip(cx, cy, r, bandTop, bandBot) {
+  if (bandTop >= cy + r || bandBot <= cy - r) return null
+  const minDy = (cy >= bandTop && cy <= bandBot) ? 0 : cy < bandTop ? bandTop - cy : cy - bandBot
+  if (minDy >= r) return null
+  const half = Math.sqrt(r * r - minDy * minDy)
+  return { left: cx - half, right: cx + half }
+}
+
+function drawText() {
+  if (!prepared || !layoutNextLine) return
+
+  const PAC_R = 28
+  const GHOST_R = 22
+
+  const obstacles = [{ cx: pacman.x, cy: pacman.y, r: PAC_R }]
+  for (const g of ghosts) obstacles.push({ cx: g.x, cy: g.y, r: GHOST_R })
+
+  ctx.save()
+  ctx.font = FONT
+
+  let cursor = { segmentIndex: 0, graphemeIndex: 0 }
+  let y = PADDING
+  let safety = 0
+  const maxY = H - PADDING
+
+  while (y < maxY && safety < 600) {
+    safety++
+    const bandTop = y
+    const bandBot = y + LINE_H
+
+    let segments = [{ left: PADDING, right: W - PADDING }]
+    for (const obs of obstacles) {
+      const clip = circleClip(obs.cx, obs.cy, obs.r + 8, bandTop, bandBot)
+      if (!clip) continue
+      const next = []
+      for (const seg of segments) {
+        if (clip.right <= seg.left || clip.left >= seg.right) { next.push(seg); continue }
+        if (clip.left > seg.left) next.push({ left: seg.left, right: clip.left })
+        if (clip.right < seg.right) next.push({ left: clip.right, right: seg.right })
+      }
+      segments = next
+    }
+
+    segments = segments.filter(s => s.right - s.left > 30)
+
+    if (segments.length === 0) { y += LINE_H; continue }
+
+    for (const seg of segments) {
+      const w = seg.right - seg.left
+      const line = layoutNextLine(prepared, cursor, w)
+      if (!line) { cursor = { segmentIndex: 0, graphemeIndex: 0 }; continue }
+
+      let alpha = 0.55
+      let r = 210, g = 215, b = 225
+
+      for (let gi = 0; gi < ghosts.length; gi++) {
+        const gh = ghosts[gi]
+        const lineCx = (seg.left + seg.right) / 2
+        const dist = Math.sqrt((lineCx - gh.x) ** 2 + ((y + LINE_H / 2) - gh.y) ** 2)
+        if (dist < 100) {
+          const t = 1 - dist / 100
+          r = Math.round(r + (GHOST_COLORS[gi][0] - r) * t * 0.7)
+          g = Math.round(g + (GHOST_COLORS[gi][1] - g) * t * 0.7)
+          b = Math.round(b + (GHOST_COLORS[gi][2] - b) * t * 0.7)
+          alpha = Math.min(0.85, alpha + t * 0.3)
+        }
+      }
+
+      const pacDist = Math.sqrt(((seg.left + seg.right) / 2 - pacman.x) ** 2 + ((y + LINE_H / 2) - pacman.y) ** 2)
+      if (pacDist < 80) {
+        const t = 1 - pacDist / 80
+        r = Math.round(r + (255 - r) * t * 0.5)
+        g = Math.round(g + (230 - g) * t * 0.5)
+        b = Math.round(b + (80 - b) * t * 0.5)
+        alpha = Math.min(0.9, alpha + t * 0.25)
+      }
+
+      ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`
+      ctx.fillText(line.text, seg.left, y + LINE_H * 0.78)
+      cursor = line.end
+    }
+    y += LINE_H
+  }
+  ctx.restore()
+}
+
+function drawFallbackText() {
+  const words = TEXT.split(/\s+/)
+  ctx.save()
+  ctx.font = FONT
+  ctx.fillStyle = 'rgba(210, 215, 225, 0.45)'
+  let x = PADDING, y = PADDING + LINE_H
+  for (const word of words) {
+    const w = ctx.measureText(word + ' ').width
+    if (x + w > W - PADDING) { x = PADDING; y += LINE_H }
+    if (y > H - PADDING) break
+
+    const pacDist = Math.sqrt((x + w/2 - pacman.x)**2 + (y - pacman.y)**2)
+    if (pacDist < 30) { x += w; continue }
+
+    let skip = false
+    for (const g of ghosts) {
+      const d = Math.sqrt((x + w/2 - g.x)**2 + (y - g.y)**2)
+      if (d < 24) { skip = true; break }
+    }
+    if (skip) { x += w; continue }
+
+    ctx.fillText(word, x, y)
+    x += w
+  }
+  ctx.restore()
+}
+
+function drawPacman() {
+  const { x, y, dir, mouth } = pacman
+  const r = 18
+  const angle = DIR_ANGLES[dir]
+  const m = mouth * Math.PI
+
+  ctx.save()
+  ctx.shadowColor = 'rgba(255, 224, 0, 0.4)'
+  ctx.shadowBlur = 24
+  ctx.fillStyle = '#ffe040'
+  ctx.beginPath()
+  ctx.moveTo(x, y)
+  ctx.arc(x, y, r, angle + m, angle + Math.PI * 2 - m)
+  ctx.closePath()
+  ctx.fill()
+  ctx.shadowBlur = 0
+
+  const eyeA = angle - Math.PI / 4
+  ctx.fillStyle = '#0a0a0f'
+  ctx.beginPath()
+  ctx.arc(x + Math.cos(eyeA) * r * 0.42, y + Math.sin(eyeA) * r * 0.42, 2.5, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.restore()
+}
+
+function drawGhost(g, gi) {
+  const { x, y, color, dir } = g
+  const r = 16
+  const time = performance.now() / 1000
+
+  ctx.save()
+  ctx.shadowColor = `rgba(${color[0]},${color[1]},${color[2]}, 0.45)`
+  ctx.shadowBlur = 20
+  ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]}, 0.88)`
+
+  ctx.beginPath()
+  ctx.arc(x, y - 2, r, Math.PI, 0)
+  for (let i = 4; i >= 0; i--) {
+    const wx = x - r + (2 * r * i / 4)
+    const wy = y + r * 0.5 + Math.sin(time * 6 + i * 1.5 + gi) * 2.5
+    ctx.lineTo(wx, wy)
+  }
+  ctx.closePath()
+  ctx.fill()
+  ctx.shadowBlur = 0
+
+  const d = DIRS[dir]
+  ctx.fillStyle = '#fff'
+  for (let ei = -1; ei <= 1; ei += 2) {
+    const ex = x + ei * r * 0.3, ey = y - r * 0.2
+    ctx.beginPath(); ctx.arc(ex, ey, 4, 0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = '#111'
+    ctx.beginPath(); ctx.arc(ex + d.dx * 1.8, ey + d.dy * 1.8, 2, 0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = '#fff'
+  }
+  ctx.restore()
+}
+
+let lastTime = performance.now()
+
+function loop(now) {
+  const dt = Math.min((now - lastTime) / 1000, 0.05)
+  lastTime = now
+
+  updatePacman(dt)
+  updateGhosts(dt)
+  checkCollisions()
+  updateRespawn(dt)
+  updateExplosions(dt)
+
+  ctx.save()
+  if (shakeTimer > 0) {
+    const s = shakeIntensity * (shakeTimer / 0.4)
+    ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s)
+  }
+
+  ctx.fillStyle = '#0a0a0f'
+  ctx.fillRect(-10, -10, W + 20, H + 20)
+
+  if (prepared && layoutNextLine) drawText()
+  else drawFallbackText()
+
+  if (respawnTimer <= 0) drawPacman()
+  for (let i = 0; i < ghosts.length; i++) drawGhost(ghosts[i], i)
+
+  drawExplosions()
+  ctx.restore()
+
+  requestAnimationFrame(loop)
+}
+requestAnimationFrame(loop)
+</script>
+</body>
+</html>
