@@ -877,85 +877,115 @@
       ctx.setTransform(dpr,0,0,dpr,0,0);
     }
     resize();
-    var cols = [
-      {cx:.22, w:70, target:.60, pal:['#2b4237','#a0802f','#3d5a4a','#c9a44a']},
-      {cx:.50, w:70, target:.40, pal:['#3d5a4a','#c9a44a']},
-      {cx:.78, w:64, target:.18, pal:['#c9a44a','#d8b06a']}
-    ];
-    var flying = [], landed = [], done = {n:0}, settle = 0, raf = null;
+    /* —— 树状堆砌：三棵树（树干+分枝+树冠），粒子自上而下落、自下而上堆成树 —— */
+    var flying = [], landed = [], settle = 0, raf = null;
     var PS = 6;
-    function colX(i){ return cols[i].cx*W; }
-    function stackTop(i){
-      var col = cols[i];
-      var rows = Math.max(1, Math.round(col.target*H/PS));
-      var filled = landed.filter(function(p){return p.c===i;}).length;
-      var need = rows * Math.max(1, Math.round(col.w/PS));
-      return H - (filled/need)*col.target*H;
+    function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
+    function distSeg(px,py,seg){
+      var ax=seg[0].x, ay=seg[0].y, bx=seg[1].x, by=seg[1].y;
+      var dx=bx-ax, dy=by-ay;
+      var t=Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/((dx*dx+dy*dy)||1)));
+      var qx=ax+dx*t, qy=ay+dy*t;
+      return Math.sqrt((px-qx)*(px-qx)+(py-qy)*(py-qy));
     }
-    function spawn(){
-      cols.forEach(function(col,i){
-        var rows = Math.round(col.target*H/PS);
-        var need = rows * Math.max(1, Math.round(col.w/PS));
-        var have = landed.filter(function(p){return p.c===i;}).length + flying.filter(function(p){return p.c===i;}).length;
-        if(have < need){
-          var n = 5;
-          for(var k=0;k<n;k++){
-            flying.push({
-              c:i,
-              x: colX(i) + (Math.random()-.5)*col.w*.8,
-              y: -8 - Math.random()*90,
-              vx: (Math.random()-.5)*.6,
-              vy: 1.2+Math.random()*1.6,
-              color: col.pal[Math.floor(Math.random()*col.pal.length)]
-            });
+    function buildCells(){
+      var rnd = mulberry32(20240906);
+      var defs = [
+        {cx:.20, h:.66, trunk:9, nb:5, goldP:.26, flat:0, pal:['#2b4237','#33503f','#3d5a4a'], gold:['#c9a44a','#a0802f']},
+        {cx:.50, h:.50, trunk:8, nb:4, goldP:.30, flat:0, pal:['#3d5a4a','#4a6a56','#5a7a64'], gold:['#c9a44a']},
+        {cx:.79, h:.30, trunk:7, nb:2, goldP:1,   flat:1, pal:['#b8923f'], gold:['#c9a44a','#d8b06a']}
+      ];
+      var cells = [];
+      defs.forEach(function(d,ti){
+        var cx = d.cx*W, h = d.h*H, ground = H-4;
+        var parts = [];
+        var trunkTop = ground - h*(d.flat? .32 : .44);
+        parts.push({seg:[{x:cx,y:ground+3},{x:cx,y:trunkTop}], w:d.trunk});
+        var tips = [{x:cx, y:trunkTop}];
+        for(var b=0;b<d.nb;b++){
+          var by = ground - h*(.34 + rnd()*.26);
+          var dir = b%2? 1 : -1;
+          var ang = d.flat? (1.0 + rnd()*.4) : (.45 + rnd()*.55);
+          var len = h*(.26 + rnd()*.18);
+          var bx = cx + dir*(d.trunk*.2 + rnd()*5);
+          var ex = bx + dir*Math.sin(ang)*len;
+          var ey = by - Math.cos(ang)*len;
+          parts.push({seg:[{x:bx,y:by},{x:ex,y:ey}], w:Math.max(4, d.trunk-3)});
+          tips.push({x:ex, y:ey});
+        }
+        tips.forEach(function(t,i){
+          var r = h*(i===0? (d.flat? .34 : .17) : (.11 + rnd()*.05));
+          parts.push(d.flat
+            ? {ell:{x:t.x, y:t.y - r*.25, rx:r*1.5, ry:r*.95}}
+            : {blob:{x:t.x, y:t.y - r*.4, r:r}});
+        });
+        parts.push(d.flat
+          ? {ell:{x:cx, y:ground-h*.62, rx:h*.34, ry:h*.3}}
+          : {blob:{x:cx+(rnd()-.5)*h*.3, y:ground-h*(.55+rnd()*.18), r:h*.11}});
+        var x0 = cx-h*.62, x1 = cx+h*.62, yTop = ground-h*1.05;
+        for(var y=ground+3; y>=yTop; y-=PS){
+          for(var x=x0; x<=x1; x+=PS){
+            var inside = false;
+            for(var k=0; k<parts.length && !inside; k++){
+              var pt = parts[k];
+              if(pt.seg){ if(distSeg(x,y,pt.seg) < pt.w/2 + PS*.55) inside = true; }
+              else if(pt.blob){ var d1=x-pt.blob.x, d2=y-pt.blob.y; if(d1*d1+d2*d2 < pt.blob.r*pt.blob.r) inside = true; }
+              else { var e1=x-pt.ell.x, e2=y-pt.ell.y; if((e1*e1)/(pt.ell.rx*pt.ell.rx)+(e2*e2)/(pt.ell.ry*pt.ell.ry) < 1) inside = true; }
+            }
+            if(inside && rnd() > .18){
+              var gold = rnd() < d.goldP;
+              var arr = gold? d.gold : d.pal;
+              cells.push({tx:x, ty:y, color:arr[Math.floor(rnd()*arr.length)]});
+            }
           }
         }
       });
+      cells.sort(function(a,b){ return b.ty - a.ty; });
+      return cells;
+    }
+    var queue = buildCells();
+    if(reduceMotion){ landed = queue.slice(); queue = []; }
+    function spawn(){
+      var n = Math.min(8, queue.length);
+      for(var k=0;k<n;k++){
+        var c = queue.shift();
+        flying.push({
+          tx:c.tx, ty:c.ty,
+          x: c.tx + (Math.random()-.5)*40,
+          y: -10 - Math.random()*70,
+          vy: .8 + Math.random()*1.2,
+          seed: Math.random()*6.28,
+          color: c.color
+        });
+      }
     }
     function tick(){
       ctx.clearRect(0,0,W,H);
+      ctx.fillStyle = '#e3dac2';
+      ctx.fillRect(0, H-3, W, 1.5);
       if(!reduceMotion) spawn();
-      /* 飞行粒子 */
+      /* 飞行粒子：下落 + 轻微左右摆动 */
       for(var i=flying.length-1;i>=0;i--){
         var p = flying[i];
-        p.vy += .085; p.x += p.vx; p.y += p.vy;
-        var topY = stackTop(p.c);
-        var spread = (landed.filter(function(q){return q.c===p.c;}).length % 2) ? PS*.5 : 0;
-        if(p.y >= topY - PS && Math.abs(p.x - colX(p.c)) <= cols[p.c].w/2){
-          landed.push({c:p.c, x:p.x, y: topY-PS, color:p.color});
+        p.vy += .075;
+        p.y += p.vy;
+        p.x += Math.sin(p.y*.03 + p.seed)*.45;
+        if(p.y >= p.ty){
+          landed.push({tx:p.tx, ty:p.ty, color:p.color});
           flying.splice(i,1);
           continue;
         }
-        if(p.y > H+20){ flying.splice(i,1); continue; }
         ctx.fillStyle = p.color;
         ctx.fillRect(p.x-PS/2, p.y-PS/2, PS, PS);
       }
-      /* 已堆积粒子 */
+      /* 已落位粒子 = 长出来的树 */
       landed.forEach(function(p){
         ctx.fillStyle = p.color;
-        ctx.fillRect(p.x-PS/2, p.y-PS/2, PS, PS);
+        ctx.fillRect(p.tx-PS/2, p.ty-PS/2, PS, PS);
       });
-      /* 凝聚：粒子充足后叠加实心柱淡入 */
-      var totalNeed = 0, totalHave = 0;
-      cols.forEach(function(col,i){
-        var rows = Math.round(col.target*H/PS);
-        var need = rows * Math.round(col.w/PS);
-        totalNeed += need;
-        totalHave += landed.filter(function(p){return p.c===i;}).length;
-      });
-      if(reduceMotion || totalHave >= totalNeed*.98){
-        settle = Math.min(settle + .02, 1);
-        cols.forEach(function(col,i){
-          var x = colX(i)-col.w/2, h = col.target*H;
-          ctx.globalAlpha = settle;
-          var g = ctx.createLinearGradient(0,H-h,0,H);
-          var c1 = i===0?'#2b4237':(i===1?'#3d5a4a':'#a0802f');
-          var c2 = i===0?'#3d5a4a':(i===1?'#5a7a64':'#c9a44a');
-          g.addColorStop(0,c1); g.addColorStop(1,c2);
-          ctx.fillStyle = g;
-          ctx.fillRect(x, H-h, col.w, h);
-          ctx.globalAlpha = 1;
-        });
+      /* 全部落位 → 收尾 */
+      if(queue.length===0 && flying.length===0){
+        settle = Math.min(settle + .05, 1);
         if(settle>=1){
           sec.classList.add('settled');
           raf && cancelAnimationFrame(raf); raf = null;
