@@ -537,12 +537,6 @@
   <div class="counter fu" id="s7counter"><b id="cnt1423">0</b> 条消息</div>
   <div class="pond fu">
     <canvas id="pcanvas"></canvas>
-    <div class="tl"><span>2024-01-01</span><span>今天</span></div>
-    <div class="cols3">
-      <div class="col-meta"><span class="num">37</span><span class="lab">事件</span></div>
-      <div class="col-meta mid"><span class="num">12</span><span class="lab">长期线索</span></div>
-      <div class="col-meta warm"><span class="num">5</span><span class="lab">核心认识</span></div>
-    </div>
   </div>
   <button class="btn-replay" id="pReplay" style="margin-top:26px">重看粒子堆砌</button>
 </section>
@@ -877,99 +871,91 @@
       ctx.setTransform(dpr,0,0,dpr,0,0);
     }
     resize();
-    /* —— 树状堆砌：三棵树（树干+分枝+树冠），粒子自上而下落、自下而上堆成树 —— */
+    /* —— 柱状图堆砌：粒子下落堆满柱体，凝聚成带轴与数值的真实柱状图 —— */
     var flying = [], landed = [], settle = 0, raf = null;
     var PS = 6;
-    function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
-    function distSeg(px,py,seg){
-      var ax=seg[0].x, ay=seg[0].y, bx=seg[1].x, by=seg[1].y;
-      var dx=bx-ax, dy=by-ay;
-      var t=Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/((dx*dx+dy*dy)||1)));
-      var qx=ax+dx*t, qy=ay+dy*t;
-      return Math.sqrt((px-qx)*(px-qx)+(py-qy)*(py-qy));
+    var VMAX = 40;
+    var M = {l:48, r:18, t:36, b:34};
+    var DATA = [
+      {v:37, cx:.25, lab:'事件',     c1:'#2b4237', c2:'#3d5a4a', num:'#2b4237', pal:['#2b4237','#33503f','#3d5a4a'], gold:['#c9a44a','#a0802f'], goldP:.22},
+      {v:12, cx:.50, lab:'长期线索', c1:'#3d5a4a', c2:'#5a7a64', num:'#3d5a4a', pal:['#3d5a4a','#4a6a56','#5a7a64'], gold:['#c9a44a'],           goldP:.28},
+      {v:5,  cx:.75, lab:'核心认识', c1:'#a0802f', c2:'#c9a44a', num:'#a0802f', pal:['#b8923f'],                          gold:['#c9a44a','#d8b06a'], goldP:1}
+    ];
+    function geo(){ return {L:M.l, R:W-M.r, B:H-M.b, T:M.t}; }
+    function barRect(d){
+      var g = geo();
+      var bw = Math.min(80, (g.R-g.L)/3*.46);
+      var h = d.v/VMAX*(g.B-g.T);
+      return {x: g.L + d.cx*(g.R-g.L) - bw/2, y: g.B-h, w: bw, h: h};
     }
-    function buildCells(){
-      var rnd = mulberry32(20240906);
-      var defs = [
-        {cx:.20, h:.66, trunk:9, nb:5, goldP:.26, flat:0, pal:['#2b4237','#33503f','#3d5a4a'], gold:['#c9a44a','#a0802f']},
-        {cx:.50, h:.50, trunk:8, nb:4, goldP:.30, flat:0, pal:['#3d5a4a','#4a6a56','#5a7a64'], gold:['#c9a44a']},
-        {cx:.79, h:.30, trunk:7, nb:2, goldP:1,   flat:1, pal:['#b8923f'], gold:['#c9a44a','#d8b06a']}
-      ];
-      var cells = [];
-      defs.forEach(function(d,ti){
-        var cx = d.cx*W, h = d.h*H, ground = H-4;
-        var parts = [];
-        var trunkTop = ground - h*(d.flat? .32 : .44);
-        parts.push({seg:[{x:cx,y:ground+3},{x:cx,y:trunkTop}], w:d.trunk});
-        var tips = [{x:cx, y:trunkTop}];
-        for(var b=0;b<d.nb;b++){
-          var by = ground - h*(.34 + rnd()*.26);
-          var dir = b%2? 1 : -1;
-          var ang = d.flat? (1.0 + rnd()*.4) : (.45 + rnd()*.55);
-          var len = h*(.26 + rnd()*.18);
-          var bx = cx + dir*(d.trunk*.2 + rnd()*5);
-          var ex = bx + dir*Math.sin(ang)*len;
-          var ey = by - Math.cos(ang)*len;
-          parts.push({seg:[{x:bx,y:by},{x:ex,y:ey}], w:Math.max(4, d.trunk-3)});
-          tips.push({x:ex, y:ey});
-        }
-        tips.forEach(function(t,i){
-          var r = h*(i===0? (d.flat? .34 : .17) : (.11 + rnd()*.05));
-          parts.push(d.flat
-            ? {ell:{x:t.x, y:t.y - r*.25, rx:r*1.5, ry:r*.95}}
-            : {blob:{x:t.x, y:t.y - r*.4, r:r}});
-        });
-        parts.push(d.flat
-          ? {ell:{x:cx, y:ground-h*.62, rx:h*.34, ry:h*.3}}
-          : {blob:{x:cx+(rnd()-.5)*h*.3, y:ground-h*(.55+rnd()*.18), r:h*.11}});
-        var x0 = cx-h*.62, x1 = cx+h*.62, yTop = ground-h*1.05;
-        for(var y=ground+3; y>=yTop; y-=PS){
-          for(var x=x0; x<=x1; x+=PS){
-            var inside = false;
-            for(var k=0; k<parts.length && !inside; k++){
-              var pt = parts[k];
-              if(pt.seg){ if(distSeg(x,y,pt.seg) < pt.w/2 + PS*.55) inside = true; }
-              else if(pt.blob){ var d1=x-pt.blob.x, d2=y-pt.blob.y; if(d1*d1+d2*d2 < pt.blob.r*pt.blob.r) inside = true; }
-              else { var e1=x-pt.ell.x, e2=y-pt.ell.y; if((e1*e1)/(pt.ell.rx*pt.ell.rx)+(e2*e2)/(pt.ell.ry*pt.ell.ry) < 1) inside = true; }
-            }
-            if(inside && rnd() > .18){
-              var gold = rnd() < d.goldP;
-              var arr = gold? d.gold : d.pal;
-              cells.push({tx:x, ty:y, color:arr[Math.floor(rnd()*arr.length)]});
-            }
+    function drawAxes(){
+      var g = geo();
+      ctx.font = '10px Arial';
+      ctx.textAlign = 'right';
+      for(var v=0; v<=VMAX; v+=10){
+        var y = Math.round(g.B - v/VMAX*(g.B-g.T)) + .5;
+        ctx.strokeStyle = v===0 ? '#c4b795' : '#eae2cc';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(g.L, y); ctx.lineTo(g.R, y); ctx.stroke();
+        ctx.fillStyle = '#9a917c';
+        ctx.fillText(String(v), g.L-8, y+3);
+      }
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#b3a88d';
+      ctx.fillText('条', g.L-36, M.t-14);
+    }
+    function buildQueue(){
+      var q = [];
+      DATA.forEach(function(d){
+        var r = barRect(d);
+        for(var y = geo().B - PS; y >= r.y - PS*.9; y -= PS){
+          for(var x = r.x + PS/2; x <= r.x + r.w - PS/2; x += PS){
+            var gold = Math.random() < d.goldP;
+            var arr = gold ? d.gold : d.pal;
+            q.push({tx:x, ty:y, color: arr[Math.floor(Math.random()*arr.length)]});
           }
         }
       });
-      cells.sort(function(a,b){ return b.ty - a.ty; });
-      return cells;
+      q.sort(function(a,b){ return b.ty - a.ty; });
+      return q;
     }
-    var queue = buildCells();
+    var queue = buildQueue();
     if(reduceMotion){ landed = queue.slice(); queue = []; }
     function spawn(){
-      var n = Math.min(8, queue.length);
+      var n = Math.min(10, queue.length);
       for(var k=0;k<n;k++){
         var c = queue.shift();
         flying.push({
           tx:c.tx, ty:c.ty,
-          x: c.tx + (Math.random()-.5)*40,
-          y: -10 - Math.random()*70,
-          vy: .8 + Math.random()*1.2,
+          x: c.tx + (Math.random()-.5)*30,
+          y: -10 - Math.random()*60,
+          vy: .9 + Math.random()*1.3,
           seed: Math.random()*6.28,
           color: c.color
         });
       }
     }
+    function roundTopRect(x, y, w, h, r){
+      r = Math.min(r, w/2, h);
+      ctx.beginPath();
+      ctx.moveTo(x, y+h);
+      ctx.lineTo(x, y+r);
+      ctx.arcTo(x, y, x+r, y, r);
+      ctx.lineTo(x+w-r, y);
+      ctx.arcTo(x+w, y, x+w, y+r, r);
+      ctx.lineTo(x+w, y+h);
+      ctx.closePath();
+    }
     function tick(){
       ctx.clearRect(0,0,W,H);
-      ctx.fillStyle = '#e3dac2';
-      ctx.fillRect(0, H-3, W, 1.5);
+      drawAxes();
       if(!reduceMotion) spawn();
-      /* 飞行粒子：下落 + 轻微左右摆动 */
+      /* 飞行粒子：下落 + 轻微摆动 */
       for(var i=flying.length-1;i>=0;i--){
         var p = flying[i];
         p.vy += .075;
         p.y += p.vy;
-        p.x += Math.sin(p.y*.03 + p.seed)*.45;
+        p.x += Math.sin(p.y*.03 + p.seed)*.4;
         if(p.y >= p.ty){
           landed.push({tx:p.tx, ty:p.ty, color:p.color});
           flying.splice(i,1);
@@ -978,14 +964,37 @@
         ctx.fillStyle = p.color;
         ctx.fillRect(p.x-PS/2, p.y-PS/2, PS, PS);
       }
-      /* 已落位粒子 = 长出来的树 */
+      /* 已落位粒子 = 逐渐堆满的柱体 */
       landed.forEach(function(p){
         ctx.fillStyle = p.color;
         ctx.fillRect(p.tx-PS/2, p.ty-PS/2, PS, PS);
       });
-      /* 全部落位 → 收尾 */
+      /* 全部落位 → 凝聚成真实柱状图（实心柱+数值+分类标签） */
       if(queue.length===0 && flying.length===0){
-        settle = Math.min(settle + .05, 1);
+        settle = Math.min(settle + .045, 1);
+        DATA.forEach(function(d){
+          var r = barRect(d);
+          ctx.globalAlpha = settle;
+          var g2 = ctx.createLinearGradient(0, r.y, 0, geo().B);
+          g2.addColorStop(0, d.c2); g2.addColorStop(1, d.c1);
+          ctx.fillStyle = g2;
+          roundTopRect(r.x, r.y, r.w, r.h, 5);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(60,50,20,.18)';
+          ctx.lineWidth = 1;
+          roundTopRect(r.x+.5, r.y+.5, r.w-1, r.h-.5, 5);
+          ctx.stroke();
+          /* 柱顶数值 */
+          ctx.fillStyle = d.num;
+          ctx.font = 'bold 16px Georgia, serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(String(d.v), r.x + r.w/2, r.y - 8);
+          /* 柱底分类标签 */
+          ctx.fillStyle = '#6f684f';
+          ctx.font = '11px Arial';
+          ctx.fillText(d.lab, r.x + r.w/2, geo().B + 18);
+          ctx.globalAlpha = 1;
+        });
         if(settle>=1){
           sec.classList.add('settled');
           raf && cancelAnimationFrame(raf); raf = null;
