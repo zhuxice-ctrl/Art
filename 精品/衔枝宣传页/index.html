@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>衔枝 Twig · 叙事记忆引擎 — 宣传页复刻</title>
+<style>
+  :root{
+    --green:#2b4237; --green2:#3d5a4a; --green3:#233830;
+    --paper:#f5f0e4; --paper2:#efe8d8; --paper3:#e8dfca;
+    --ink:#22302a; --ink2:#5a6a62;
+    --gold:#b68735; --gold2:#d8b06a; --seal:#a63c2e;
+    --theme:#2b4237;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:"Noto Serif SC","Songti SC","SimSun",serif;
+    background:var(--paper); color:var(--ink);
+    overflow-x:hidden;
+  }
+  .en{font-family:"Helvetica Neue",Arial,sans-serif;letter-spacing:.3em;text-transform:uppercase;font-weight:300}
+  ::selection{background:var(--gold2)}
+
+  /* ---------- 侧边导航 ---------- */
+  #sideNav{
+    position:fixed;left:0;top:0;bottom:0;width:180px;z-index:50;
+    background:var(--theme);color:#e9e2cf;display:flex;flex-direction:column;
+    padding:26px 0 18px;transition:background .5s;
+  }
+  #sideNav .nav-logo{font-size:26px;text-align:center;letter-spacing:.1em;color:#f2ecdc}
+  #sideNav .nav-logo small{display:block;font-size:9px;letter-spacing:.35em;color:var(--gold2);margin-top:6px;font-family:Arial,sans-serif}
+  #sideNav ul{list-style:none;margin-top:34px;flex:1}
+  #sideNav li a{
+    display:block;padding:9px 22px;font-size:13px;color:#c9c2ad;text-decoration:none;
+    border-left:2px solid transparent;transition:all .25s;
+  }
+  #sideNav li a:hover{color:#fff}
+  #sideNav li a.active{color:#fff;border-left-color:var(--gold2);background:rgba(255,255,255,.06)}
+  .theme-dots{display:flex;gap:8px;justify-content:center;margin:14px 0}
+  .theme-dots i{width:13px;height:13px;border-radius:50%;cursor:pointer;border:1.5px solid rgba(255,255,255,.35);transition:transform .2s}
+  .theme-dots i:hover{transform:scale(1.25)}
+  #sideNav .nav-foot{font-size:10px;text-align:center;color:#8f9a8d;letter-spacing:.15em;font-family:Arial,sans-serif}
+
+  main{margin-left:180px}
+  @media (max-width:900px){ #sideNav{display:none} main{margin-left:0} }
+
+  .scene{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:70px 26px;position:relative;overflow:hidden}
+  .s-dark{background:var(--green);color:var(--paper)}
+  .s-paper{background:var(--paper)}
+  .s-paper2{background:var(--paper2)}
+  .s-deep{background:var(--green3);color:var(--paper)}
+
+  /* 淡入上移 */
+  .fu{opacity:0;transform:translateY(26px);transition:opacity .9s ease var(--d,0s),transform .9s ease var(--d,0s)}
+  .scene.in .fu{opacity:1;transform:none}
+
+  /* ---------- S1 Logo 开场 ---------- */
+  #s1 .orn{color:var(--gold2);font-size:22px;line-height:1;--d:.1s}
+  #s1 h1{font-size:clamp(64px,12vw,120px);font-weight:600;letter-spacing:.14em;margin:18px 0 10px;--d:.45s}
+  #s1 .en-sub{font-size:clamp(10px,1.4vw,13px);color:#b8c0b2;--d:.85s}
+  #s1 .gdiv{--d:1.25s;display:flex;align-items:center;gap:10px;margin-top:42px}
+  #s1 .gdiv span{display:block;width:84px;height:1px;background:linear-gradient(90deg,transparent,var(--gold))}
+  #s1 .gdiv span:last-child{background:linear-gradient(90deg,var(--gold),transparent)}
+  #s1 .gdiv i{width:5px;height:5px;border-radius:50%;background:var(--gold)}
+
+  /* ---------- S2 3D 样机 ---------- */
+  #s2 .stage3d{perspective:1300px;margin-top:8px}
+  #s2 .mockup{
+    width:min(760px,82vw);aspect-ratio:16/9.6;border-radius:14px;background:var(--paper);
+    box-shadow:0 60px 90px -30px rgba(43,42,30,.45);
+    display:grid;grid-template-columns:26% 1fr;overflow:hidden;
+    transform:rotateX(14deg) rotateY(-26deg) scale(.82);opacity:0;
+    transition:transform 1.6s cubic-bezier(.2,.75,.2,1) .15s,opacity .8s ease .15s,box-shadow 1.6s ease .15s;
+  }
+  #s2.in .mockup{transform:none;opacity:1;box-shadow:0 30px 50px -24px rgba(43,42,30,.4)}
+  #s2 .m-side{background:var(--green);color:#cfc8b2;padding:16px 12px;display:flex;flex-direction:column}
+  #s2 .m-side b{color:#f2ecdc;font-size:15px;letter-spacing:.15em}
+  #s2 .m-side i{font-style:normal;font-size:8px;color:var(--gold2);letter-spacing:.3em;font-family:Arial;margin-top:3px}
+  #s2 .m-side u{display:block;height:7px;background:rgba(255,255,255,.12);border-radius:3px;margin-top:14px;text-decoration:none}
+  #s2 .m-side u:nth-child(4){width:70%}
+  #s2 .m-main{padding:14px}
+  #s2 .m-search{height:24px;border-radius:6px;background:#fff;box-shadow:inset 0 0 0 1px #e3dcc9;display:flex;align-items:center;padding:0 8px;color:#a89f88;font-size:10px}
+  #s2 .m-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+  #s2 .m-card{background:#fff;border-radius:8px;padding:10px;box-shadow:0 1px 4px rgba(60,50,20,.08)}
+  #s2 .m-card h6{font-size:10px;color:#6b7a6f;font-weight:400}
+  #s2 .m-bar{height:5px;border-radius:3px;background:#eee7d4;margin-top:7px;overflow:hidden}
+  #s2 .m-bar b{display:block;height:100%;background:var(--green2);width:var(--w);transition:width 1.2s ease 1s}
+  #s2.in .m-bar b{width:var(--w)}
+  #s2 .cap{margin-top:44px;color:#8b8574;font-size:14px;letter-spacing:.2em}
+
+  /* ---------- 应用 UI 公共 ---------- */
+  .app{width:min(1080px,94vw);background:var(--paper);border-radius:14px;overflow:hidden;
+    box-shadow:0 24px 60px -20px rgba(43,42,30,.35);display:grid;grid-template-columns:190px 1fr}
+  .app-solo{display:block}
+  .app-side{background:var(--theme);color:#c9c2ad;padding:20px 0 14px;display:flex;flex-direction:column;transition:background .5s}
+  .app-side .brand{font-size:21px;color:#f2ecdc;text-align:center;letter-spacing:.12em}
+  .app-side .brand small{display:block;font-size:8px;letter-spacing:.32em;color:var(--gold2);margin-top:5px;font-family:Arial}
+  .app-side ul{list-style:none;margin-top:26px;flex:1}
+  .app-side li{padding:8px 18px;font-size:12.5px;display:flex;justify-content:space-between;cursor:pointer;border-left:2px solid transparent;transition:all .2s}
+  .app-side li:hover{color:#fff}
+  .app-side li.on{color:#fff;border-left-color:var(--gold2);background:rgba(255,255,255,.07)}
+  .app-side li em{font-style:normal;opacity:.55;font-size:11px}
+  .app-main{padding:18px 22px;display:flex;flex-direction:column;gap:14px;min-width:0}
+  .app-top{display:flex;align-items:center;gap:12px}
+  .app-top .search{flex:1;height:32px;background:#fff;border-radius:8px;box-shadow:inset 0 0 0 1px #e5decb;display:flex;align-items:center;padding:0 12px;color:#a89f88;font-size:12px}
+  .app-top .who{font-size:11.5px;color:#6b7a6f}
+  .app-top .who b{color:var(--gold);font-weight:600}
+  .app-top .bell{width:28px;height:28px;border-radius:50%;background:#fff;box-shadow:inset 0 0 0 1px #e5decb;display:grid;place-items:center;font-size:13px}
+  .app-top .ava{width:28px;height:28px;border-radius:50%;background:var(--green2);color:#fff;display:grid;place-items:center;font-size:12px}
+
+  /* ---------- S3 记忆装载 ---------- */
+  .axis{display:flex;align-items:flex-start;justify-content:space-between;padding:6px 4px 2px}
+  .axis .node{display:flex;flex-direction:column;align-items:center;gap:5px;width:14%;opacity:.35;transition:opacity .5s;position:relative}
+  .axis .node.on{opacity:1}
+  .axis .node .ic{width:30px;height:30px;border-radius:50%;background:#fff;box-shadow:inset 0 0 0 1.5px #ddd4bd;display:grid;place-items:center;font-size:13px;transition:all .5s;position:relative;z-index:1}
+  .axis .node.on .ic{background:var(--green);color:#f2ecdc;box-shadow:none}
+  .axis .node::before{content:"";position:absolute;top:15px;left:calc(50% + 16px);width:calc(100% - 32px);height:1.5px;background:#ddd4bd}
+  .axis .node:last-child::before{display:none}
+  .axis .node span{font-size:11px;color:var(--ink)}
+  .axis .node em{font-style:normal;font-size:9.5px;color:var(--gold);font-family:Arial}
+  .loaded{ text-align:center;margin:34px 0 8px}
+  .loaded h3{font-size:clamp(20px,3vw,30px);font-weight:600;letter-spacing:.06em}
+  .loaded p{margin-top:10px;font-size:13px;color:var(--ink2);letter-spacing:.08em}
+  .loaded p b{color:var(--green);font-size:15px}
+  .ioarea{display:flex;gap:10px;margin-top:22px}
+  .ioarea .preset{padding:10px 16px;border-radius:9px;background:var(--green);color:#f2ecdc;border:none;font-family:inherit;font-size:13px;cursor:pointer;transition:transform .15s,background .3s}
+  .ioarea .preset:hover{transform:translateY(-2px);background:var(--green2)}
+  .ioarea input{flex:1;height:42px;border-radius:9px;border:1px solid #ddd4bd;background:#fff;padding:0 14px;font-family:inherit;font-size:13px;color:var(--ink);outline:none}
+  .ioarea input::placeholder{color:#b3ab94}
+  .ioarea .send{width:46px;height:42px;border-radius:9px;background:var(--gold);color:#fff;border:none;font-size:16px;cursor:pointer}
+  .ioarea .send:hover{background:#c79440}
+  .s3grid{display:grid;grid-template-columns:1fr 300px;gap:14px;margin-top:8px}
+  @media (max-width:860px){.s3grid{grid-template-columns:1fr}.app{grid-template-columns:1fr}.app-side{display:none}}
+  .replybox{margin-top:12px;padding:10px 14px;border-radius:9px;background:#fff;border:1px dashed var(--gold2);font-size:12.5px;color:var(--ink2);display:none}
+  .replybox b{color:var(--green)}
+  .rp-tabs{display:flex;gap:4px;border-bottom:1px solid #ddd4bd;padding-bottom:8px}
+  .rp-tabs span{font-size:12px;padding:5px 11px;border-radius:6px;cursor:pointer;color:var(--ink2)}
+  .rp-tabs span.on{background:var(--green);color:#f2ecdc}
+  .rp-meta{font-size:10.5px;color:#8b8574;margin:8px 0 4px;letter-spacing:.05em}
+  .cog{background:#fff;border-radius:10px;padding:11px 13px;box-shadow:0 1px 4px rgba(60,50,20,.07);margin-top:8px;
+    opacity:0;transform:translateX(22px);transition:all .6s ease var(--d)}
+  .scene.in .cog{opacity:1;transform:none}
+  .cog h5{font-size:12.5px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+  .cog h5 b{color:var(--green);font-size:13px}
+  .cog .q{font-size:10.5px;color:var(--ink2);margin:4px 0 7px}
+  .cog .bar{height:5px;border-radius:3px;background:#eee7d4;overflow:hidden}
+  .cog .bar b{display:block;height:100%;width:0;background:var(--green2);transition:width 1.1s ease var(--d2,1s)}
+  .scene.in .cog .bar b{width:var(--v)}
+  .cog .open{font-size:9px;color:var(--seal);border:1px solid var(--seal);border-radius:4px;padding:1px 5px;font-weight:400}
+
+  /* ---------- S4 三层记忆·翻起 ---------- */
+  #s4 .en-cap{font-size:11px;color:var(--gold);--d:0s}
+  #s4 h2{font-size:clamp(24px,4vw,38px);margin:14px 0 46px;font-weight:600;--d:.2s}
+  .fanstage{display:flex;gap:26px;perspective:1500px;flex-wrap:wrap;justify-content:center}
+  .fan{width:min(280px,80vw);min-height:330px;background:#fff;border-radius:14px;padding:22px 20px;
+    box-shadow:0 26px 44px -18px rgba(43,42,30,.38);
+    transform:rotateX(82deg) translateY(90px);
+    transition:transform 1s cubic-bezier(.18,.7,.2,1) var(--d),box-shadow 1s ease var(--d);
+    transform-style:preserve-3d;position:relative}
+  .scene.in .fan{transform:rotateX(9deg) translateY(0)}
+  .fan.c1{--d:.1s}.fan.c2{--d:.32s;margin-top:14px}.fan.c3{--d:.54s}
+  .scene.in .fan.c1{transform:rotateX(9deg) rotateY(-4deg)}
+  .scene.in .fan.c3{transform:rotateX(9deg) rotateY(4deg)}
+  .fan:hover{transform:rotateX(4deg) translateY(-10px) !important;box-shadow:0 40px 60px -20px rgba(43,42,30,.45)}
+  .fan h3{font-size:19px;font-weight:600;display:flex;align-items:baseline;gap:10px}
+  .fan h3 small{font-size:9px;color:var(--gold);letter-spacing:.25em;font-family:Arial;font-weight:400}
+  .fan .list{margin:16px 0;font-size:11.5px;color:var(--ink2);line-height:2}
+  .fan .list li{list-style:none;border-bottom:1px dashed #e5decb;padding:2px 0;display:flex;justify-content:space-between}
+  .fan .list li em{font-style:normal;color:var(--gold);font-family:Arial;font-size:10px}
+  .fan p{font-size:11.5px;color:var(--ink2);line-height:1.8;border-top:1px solid #eee7d4;padding-top:12px}
+  .fan p b{color:var(--green)}
+  .btn-replay{margin-top:46px;padding:9px 22px;border-radius:8px;border:1px solid var(--gold);background:none;color:var(--gold);font-family:inherit;font-size:12.5px;cursor:pointer;letter-spacing:.15em;transition:all .25s}
+  .btn-replay:hover{background:var(--gold);color:#fff}
+
+  /* ---------- S5 文字 ---------- */
+  #s5{background:var(--paper)}
+  #s5 .rings{position:absolute;inset:0;background:repeating-radial-gradient(circle at 50% 46%,transparent 0 58px,rgba(182,135,53,.07) 58px 59px);pointer-events:none}
+  #s5 .big{font-size:clamp(26px,5vw,46px);font-weight:600;letter-spacing:.1em;--d:.15s;position:relative}
+  #s5 .big em{font-style:normal;color:var(--gold);position:relative;padding-bottom:6px}
+  #s5 .big em::after{content:"";position:absolute;left:0;bottom:0;height:2px;width:100%;background:var(--gold);transform:scaleX(0);transform-origin:left;transition:transform 1s ease 1s}
+  .scene.in #s5 .big em::after{transform:scaleX(1)}
+
+  /* ---------- S6 对比滑块 ---------- */
+  #s6 .en-cap{font-size:11px;color:var(--gold);--d:0s}
+  #s6 h2{font-size:clamp(22px,3.6vw,34px);margin:12px 0 34px;font-weight:600;--d:.15s}
+  .cmp{width:min(860px,94vw);border-radius:16px;background:#fbf7ec;border:1px solid #e8e0cc;position:relative;
+    display:grid;grid-template-columns:1fr 1fr;min-height:240px;overflow:hidden;--d:.3s}
+  .cmp>div.pane{padding:26px 26px 54px;transition:opacity .3s;opacity:0}
+  .scene.in .cmp>div.pane{opacity:1}
+  .cmp .ptag{font-size:10px;letter-spacing:.2em;color:#8b8574;font-family:Arial;margin-bottom:12px}
+  .cmp .pane.right .ptag{color:var(--gold)}
+  .cmp .pane p{font-size:14px;line-height:2;color:var(--ink)}
+  .cmp .pane.right p b{color:var(--seal)}
+  .cmp .pane.left p{color:#7a7566}
+  .cmp .cfoot{position:absolute;bottom:0;left:0;right:0;padding:10px 26px;font-size:10.5px;color:var(--ink2);
+    border-top:1px dashed #e0d7c1;background:rgba(240,232,210,.55);letter-spacing:.03em}
+  .cmp .cfoot b{color:var(--green)}
+  .cmp .vline{position:absolute;top:0;bottom:30px;left:50%;width:2px;background:var(--gold);z-index:3;pointer-events:none}
+  .cmp .grab{position:absolute;top:42%;left:50%;width:40px;height:40px;border-radius:50%;background:var(--gold);color:#fff;
+    display:grid;place-items:center;cursor:ew-resize;z-index:4;transform:translate(-50%,-50%);
+    box-shadow:0 4px 12px rgba(120,90,30,.4);touch-action:none;user-select:none;font-size:13px;letter-spacing:-1px}
+  .cmp .grab::before{content:"‹ ›"}
+  #s6 .cap{margin-top:30px;font-size:14px;color:var(--ink2);letter-spacing:.14em;--d:.5s}
+  #s6 .cap b{color:var(--green)}
+
+  /* ---------- S7 粒子堆砌 ---------- */
+  #s7 .en-cap{font-size:11px;color:var(--gold)}
+  #s7 h2{font-size:clamp(22px,3.6vw,34px);margin:12px 0 8px;font-weight:600}
+  #s7 .counter{font-size:15px;color:var(--ink2);margin-bottom:14px;height:22px}
+  #s7 .counter b{font-size:22px;color:var(--green);font-family:Georgia,serif}
+  .pond{width:min(760px,92vw);border-radius:14px;background:#fbf7ec;border:1px solid #e8e0cc;position:relative;padding:16px 10px 6px}
+  #pcanvas{display:block;width:100%;height:340px}
+  .pond .tl{display:flex;justify-content:space-between;font-size:10.5px;color:#8b8574;padding:2px 14px 8px;font-family:Arial;letter-spacing:.05em}
+  .cols3{display:flex;justify-content:center;gap:8%;padding:0 6%}
+  .col-meta{display:flex;flex-direction:column;align-items:center;min-width:96px}
+  .col-meta .num{font-size:26px;font-weight:700;color:var(--green);opacity:0;transition:opacity .8s}
+  .col-meta.warm .num{color:#a0802f}
+  .col-meta.mid .num{color:var(--green2)}
+  .scene.in.settled .col-meta .num{opacity:1}
+  .col-meta .lab{font-size:12px;color:var(--ink2);margin-top:4px;opacity:0;transition:opacity .8s .2s}
+  .scene.in.settled .col-meta .lab{opacity:1}
+
+  /* ---------- S8 认识层 ---------- */
+  #s8 .app{width:min(1000px,94vw)}
+  .cogrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:820px){.cogrid{grid-template-columns:1fr}}
+  .ccard{background:#fff;border-radius:12px;padding:16px 18px;box-shadow:0 1px 5px rgba(60,50,20,.08)}
+  .ccard h4{font-size:14.5px;display:flex;align-items:baseline;gap:9px}
+  .ccard h4 small{font-size:9px;color:var(--gold);letter-spacing:.22em;font-family:Arial}
+  .obs{margin-top:10px}
+  .obs li{list-style:none;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--ink2);padding:5px 0;border-bottom:1px dashed #ece4cf;gap:8px}
+  .obs li b{color:var(--ink)}
+  .obs li .mini{flex:1;max-width:120px;height:4px;border-radius:2px;background:#eee7d4;overflow:hidden;margin-left:auto}
+  .obs li .mini b{display:block;height:100%;background:var(--green2);width:var(--v)}
+  .obs li em{font-style:normal;font-family:Georgia,serif;color:var(--green2);font-size:12px}
+  .ce .ce-btn{margin-top:10px;display:flex;gap:8px}
+  .ce .ce-btn button{flex:1;padding:8px 0;border-radius:8px;border:1px solid var(--green2);background:none;color:var(--green2);font-family:inherit;font-size:12px;cursor:pointer;transition:all .2s}
+  .ce .ce-btn button:hover{background:var(--green2);color:#fff}
+  .drift{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .drift span{font-size:11.5px;padding:6px 12px;border-radius:16px;border:1px solid #d9cfb4;color:var(--ink2)}
+  .wall{background:var(--green);color:#e9e2cf !important}
+  .wall h4{color:#f2ecdc}
+  .wall h4 small{color:var(--gold2)}
+  .wall p{margin-top:10px;font-size:16px;letter-spacing:.15em;text-align:center;padding:8px 0}
+  .audit{margin-top:10px}
+  .audit .row{margin:10px 0}
+  .audit .row span{font-size:12px;color:var(--ink2);display:flex;justify-content:space-between}
+  .audit .row span b{font-family:Georgia,serif;color:var(--green)}
+  .audit .bar{height:6px;border-radius:3px;background:#eee7d4;margin-top:5px;overflow:hidden}
+  .audit .bar b{display:block;height:100%;background:var(--gold);width:var(--v)}
+  #s8 .hint{margin-top:16px;text-align:center;font-size:13px;color:var(--ink2);letter-spacing:.1em;padding:10px;border:1px dashed var(--gold2);border-radius:10px}
+  #s8 .hint b{color:var(--green)}
+
+  /* ---------- S9 现场演示 ---------- */
+  #s9 .app{width:min(1020px,94vw)}
+  .demo-wrap{display:grid;grid-template-columns:1fr 250px;gap:14px}
+  @media (max-width:860px){.demo-wrap{grid-template-columns:1fr}}
+  .flow{display:flex;flex-direction:column;gap:10px;min-height:300px}
+  .msg{max-width:78%;padding:11px 15px;border-radius:12px;font-size:13px;line-height:1.9;opacity:0;transform:translateY(14px);transition:all .55s ease}
+  .msg.show{opacity:1;transform:none}
+  .msg.u{align-self:flex-end;background:var(--green);color:#f2ecdc;border-bottom-right-radius:3px}
+  .msg.s{align-self:flex-start;background:#fff;border:1px solid #e8e0cc;border-bottom-left-radius:3px}
+  .msg.s .tags{display:inline}
+  .msg.s .tags i{font-style:normal;color:var(--gold);margin-right:6px;display:inline-block;animation:pop .4s ease both;animation-delay:var(--d)}
+  @keyframes pop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
+  .syscard{align-self:flex-start;width:88%;border-radius:12px;padding:12px 14px;font-size:12px;line-height:1.9;opacity:0;transform:translateY(14px);transition:all .55s ease;border:1px solid #e8e0cc;background:#fdfaf1}
+  .syscard.show{opacity:1;transform:none}
+  .syscard.warn{border:1px solid #e3b8a8;background:#faf3ee}
+  .syscard h6{font-size:12.5px;color:var(--seal);margin-bottom:4px}
+  .syscard .conf{display:flex;align-items:center;gap:10px;margin-top:8px}
+  .syscard .conf .bar{flex:1;height:7px;border-radius:4px;background:#eee7d4;overflow:hidden}
+  .syscard .conf .bar b{display:block;height:100%;background:var(--seal);width:82%;transition:width 1.4s ease}
+  .syscard .conf em{font-style:normal;font-family:Georgia,serif;font-size:15px;color:var(--seal)}
+  .concl .cc{background:#fff;border-radius:10px;padding:10px 13px;box-shadow:0 1px 4px rgba(60,50,20,.07);margin-bottom:9px}
+  .concl .cc h5{font-size:12.5px;display:flex;justify-content:space-between}
+  .concl .cc h5 b{color:var(--green);font-family:Georgia,serif}
+  .concl .cc p{font-size:10.5px;color:var(--ink2);margin-top:3px}
+  .surrender{background:var(--green);color:#e9e2cf;border-radius:12px;padding:13px 15px;font-size:12.5px;line-height:2}
+  .surrender b{color:var(--gold2)}
+  #s9 .ioarea input{height:38px;font-size:12px}
+
+  /* ---------- S10 草蛇灰线 ---------- */
+  #s10{align-items:center}
+  .papers{position:absolute;inset:0;overflow:hidden}
+  .papers i{position:absolute;display:block;background:rgba(245,240,228,.05);border:1px solid rgba(245,240,228,.08);border-radius:6px}
+  .spot{position:absolute;width:520px;height:520px;border-radius:50%;
+    background:radial-gradient(circle,rgba(245,240,228,.14),transparent 62%);
+    top:-140px;left:-160px;opacity:0;transition:opacity 1.2s;animation:spotmove 5s ease .8s forwards;pointer-events:none}
+  .scene.in .spot{opacity:1}
+  @keyframes spotmove{0%{transform:translate(0,0)}55%{transform:translate(24vw,10vh)}100%{transform:translate(30vw,26vh)}}
+  .reveal-card{width:min(860px,93vw);background:rgba(245,240,228,.96);border-radius:16px;padding:30px 36px 26px;position:relative;
+    opacity:0;transform:translateY(30px) scale(.97);transition:all 1s ease 1.6s;box-shadow:0 30px 60px -20px rgba(0,0,0,.5)}
+  .scene.in .reveal-card{opacity:1;transform:none}
+  .reveal-card .rc-top{font-size:10px;color:var(--gold);letter-spacing:.3em;font-family:Arial}
+  .reveal-card h2{font-size:clamp(22px,3.4vw,32px);margin:10px 0 6px;font-weight:600;color:var(--ink)}
+  .reveal-card .rc-desc{font-size:13px;color:var(--ink2)}
+  .rc-div{height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:18px 0}
+  .tline{position:relative;padding:6px 0 2px}
+  .tline .lab{font-size:10px;color:#8b8574;letter-spacing:.2em;font-family:Arial;margin-bottom:6px}
+  .tline .axisline{height:2px;background:#3d5a4a;border-radius:2px;position:relative;margin:0 8px}
+  .tline.gray .axisline{background:#b7b2a4}
+  .tline .ev{position:absolute;top:-7px;width:14px;height:14px;border-radius:50%;background:var(--paper);border:3px solid var(--green2);transform:scale(0);transition:transform .5s ease var(--d)}
+  .tline.gray .ev{border-color:#b7b2a4;width:10px;height:10px;top:-5px}
+  .scene.in .tline .ev{transform:scale(1)}
+  .tline .ev::after{content:attr(data-t);position:absolute;top:-26px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--ink2);white-space:nowrap;font-family:Arial}
+  .tline .ev span{position:absolute;top:20px;left:50%;transform:translateX(-50%) scale(.9);font-size:11px;color:var(--ink);white-space:nowrap;opacity:0;transition:opacity .5s ease calc(var(--d) + .25s);line-height:1.6;text-align:center}
+  .scene.in .tline .ev span{opacity:1}
+  .tline{margin-bottom:30px}
+  .stampbox{position:absolute;right:30px;bottom:22px;text-align:center}
+  .stamp{width:92px;height:92px;border-radius:50%;border:3px solid var(--seal);color:var(--seal);display:grid;place-items:center;
+    font-size:19px;letter-spacing:.2em;transform:rotate(-12deg) scale(2.6);opacity:0;cursor:pointer;
+    font-weight:600;transition:transform .45s cubic-bezier(.2,1.6,.4,1),opacity .3s;box-shadow:inset 0 0 0 2px rgba(166,60,46,.25)}
+  .stamp.stamped{transform:rotate(-12deg) scale(1);opacity:.92}
+  .stampbox small{display:block;font-size:9px;color:var(--seal);letter-spacing:.2em;margin-top:6px;opacity:0;transition:opacity .5s .4s;font-family:serif}
+  .stampbox small.on{opacity:.85}
+  .corner{position:absolute;font-size:10px;color:#8b8574;font-family:Arial}
+  .reveal-card .prog{position:absolute;left:30px;bottom:20px;font-size:10px;color:#8b8574;font-family:Arial;letter-spacing:.1em}
+
+  /* ---------- S11 评测 ---------- */
+  #s11 .en-cap{font-size:10.5px;color:#a89f88;--d:0s}
+  #s11 h2{font-size:clamp(22px,3.6vw,34px);margin:12px 0 34px;font-weight:600;--d:.15s}
+  .big035{font-size:clamp(48px,9vw,84px);font-family:Georgia,serif;color:var(--ink2);opacity:0;transition:opacity 1s ease .4s;position:absolute}
+  #s11 .stage{position:relative;width:100%;min-height:300px;display:flex;align-items:center;justify-content:center}
+  .scene.in .big035{opacity:.35}
+  .scene.in.gone .big035{opacity:0}
+  .bench{display:none;gap:clamp(24px,6vw,90px);justify-content:center;width:100%}
+  .scene.in.gone .bench{display:flex}
+  .bench .b{text-align:center;max-width:230px}
+  .bench .b .n{font-size:clamp(40px,7vw,64px);font-family:Georgia,serif;color:var(--green);line-height:1.1}
+  .bench .b.gold .n{background:linear-gradient(135deg,#c79a3f,#8f6a24);-webkit-background-clip:text;background-clip:text;color:transparent;font-size:clamp(52px,8.5vw,78px)}
+  .bench .b h5{font-size:13px;margin-top:8px;color:var(--ink)}
+  .bench .b p{font-size:11.5px;color:var(--ink2);margin-top:5px;line-height:1.8}
+  #confetti{position:absolute;inset:0;pointer-events:none}
+
+  /* ---------- S12 徽章 ---------- */
+  #s12 .badge{position:relative;width:190px;height:190px;border-radius:50%;display:grid;place-items:center;
+    border:2px solid var(--gold);box-shadow:0 0 0 7px rgba(216,176,106,.12),inset 0 0 0 6px rgba(43,66,55,.9),inset 0 0 0 8px rgba(216,176,106,.5);
+    animation:breathe 5s ease-in-out infinite;opacity:0;transform:scale(.8);transition:opacity 1.2s,transform 1.2s ease}
+  .scene.in #s12 .badge,#s12.scene.in .badge{opacity:1;transform:scale(1)}
+  @keyframes breathe{0%,100%{box-shadow:0 0 0 7px rgba(216,176,106,.1),inset 0 0 0 6px rgba(43,66,55,.9),inset 0 0 0 8px rgba(216,176,106,.5)}
+    50%{box-shadow:0 0 0 12px rgba(216,176,106,.16),inset 0 0 0 6px rgba(43,66,55,.9),inset 0 0 0 8px rgba(216,176,106,.75)}}
+  #s12 .badge::before{content:"";position:absolute;top:-9px;left:50%;transform:translateX(-50%);
+    border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:11px solid var(--gold)}
+  #s12 .badge .zi{font-size:74px;color:#f2ecdc;font-weight:600}
+  #s12 .badge .curl{position:absolute;bottom:30px;font-size:15px;color:var(--gold2)}
+  #s12 .bname{margin-top:30px;font-size:11px;color:var(--gold2);letter-spacing:.5em;font-family:Arial;--d:.5s}
+
+  /* 错误提示（场景级） */
+  .scene-err{display:none;margin:20px auto;padding:10px 16px;border:1px dashed var(--seal);color:var(--seal);border-radius:8px;font-size:12px;max-width:80%}
+  .scene.has-err .scene-err{display:block}
+
+  @media (prefers-reduced-motion:reduce){
+    *{transition-duration:.01s !important;animation:none !important}
+  }
+</style>
+</head>
+<body>
+
+<nav id="sideNav">
+  <div class="nav-logo">衔枝<small>TWIG MEMORY</small></div>
+  <ul id="navList">
+    <li><a href="#s1" data-t="s1">开场</a></li>
+    <li><a href="#s2" data-t="s2">样机</a></li>
+    <li><a href="#s3" data-t="s3">记忆装载</a></li>
+    <li><a href="#s4" data-t="s4">三层记忆</a></li>
+    <li><a href="#s5" data-t="s5">一句话</a></li>
+    <li><a href="#s6" data-t="s6">对比滑块</a></li>
+    <li><a href="#s7" data-t="s7">历史压缩</a></li>
+    <li><a href="#s8" data-t="s8">认识层</a></li>
+    <li><a href="#s9" data-t="s9">现场演示</a></li>
+    <li><a href="#s10" data-t="s10">草蛇灰线</a></li>
+    <li><a href="#s11" data-t="s11">评测</a></li>
+    <li><a href="#s12" data-t="s12">徽章</a></li>
+  </ul>
+  <div class="theme-dots" id="themeDots"></div>
+  <div class="nav-foot">灰线 Grayline v0.2</div>
+</nav>
+
+<main>
+
+<!-- S1 Logo 开场 -->
+<section id="s1" class="scene s-dark">
+  <div class="orn fu">✛</div>
+  <h1 class="fu">衔枝</h1>
+  <div class="en en-sub fu">Twig · Narrative Memory Engine</div>
+  <div class="gdiv fu"><span></span><i></i><span></span></div>
+</section>
+
+<!-- S2 3D 样机 -->
+<section id="s2" class="scene s-paper">
+  <div class="stage3d">
+    <div class="mockup">
+      <div class="m-side">
+        <b>衔枝</b><i>MEMORY</i>
+        <u></u><u></u><u></u>
+      </div>
+      <div class="m-main">
+        <div class="m-search">🔍 搜索碎片、线索、论断</div>
+        <div class="m-row">
+          <div class="m-card"><h6>设备升级</h6><div class="m-bar"><b style="--w:48%"></b></div></div>
+          <div class="m-card"><h6>移松连我</h6><div class="m-bar"><b style="--w:79%"></b></div></div>
+        </div>
+        <div class="m-row">
+          <div class="m-card"><h6>人外新坑</h6><div class="m-bar"><b style="--w:38%"></b></div></div>
+          <div class="m-card"><h6>VTuber出道</h6><div class="m-bar"><b style="--w:41%"></b></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="cap fu">长程记忆 · 为每一个会陪伴你的 AI</p>
+</section>
+
+<!-- S3 记忆装载 -->
+<section id="s3" class="scene s-paper2">
+  <div class="app fu">
+    <aside class="app-side">
+      <div class="brand">衔枝<small>MEMORY</small></div>
+      <ul>
+        <li class="on">总览 <em>·</em></li>
+        <li>碎片 <em>37</em></li>
+        <li>线索 <em>12</em></li>
+        <li>认识 <em>5</em></li>
+        <li>现场演示 <em>live</em></li>
+        <li>判定日志 <em>86</em></li>
+      </ul>
+      <div class="theme-dots" data-mini></div>
+    </aside>
+    <div class="app-main">
+      <div class="app-top">
+        <div class="search">🔍 搜索碎片、线索、论断</div>
+        <div class="who"><b>灰线主创</b> · Pro 会员</div>
+        <div class="bell">🔔</div>
+        <div class="ava">灰</div>
+      </div>
+      <div class="axis" id="axis">
+        <div class="node"><i class="ic">▤</i><span>原始对话</span><em>0.24</em></div>
+        <div class="node"><i class="ic">▥</i><span>历史压缩</span><em>0.16</em></div>
+        <div class="node"><i class="ic">◈</i><span>认知生成</span><em>0.22</em></div>
+        <div class="node"><i class="ic">✦</i><span>人为反例</span><em>0.14</em></div>
+        <div class="node"><i class="ic">↺</i><span>误差回收</span><em>0.12</em></div>
+        <div class="node"><i class="ic">✓</i><span>收尾</span><em>0.12</em></div>
+      </div>
+      <div class="loaded">
+        <h3>记忆已装载：过去 90 天</h3>
+        <p><b id="n32">0</b> 事件 · <b id="n12">0</b> 线索 · <b id="n3">0</b> 核心认识</p>
+      </div>
+      <div class="ioarea">
+        <button class="preset" id="presetBtn">我终于换电脑了</button>
+        <input id="s3input" placeholder="也可以直接输入，走通用判定流程">
+        <button class="send" id="s3send">➤</button>
+      </div>
+      <div class="replybox" id="s3reply"></div>
+      <div class="s3grid">
+        <div></div>
+        <div class="rp">
+          <div class="rp-tabs"><span class="on">认识</span><span>线索</span><span>碎片</span><span>判定日志</span></div>
+          <div class="rp-meta">追溯期 · 4 · 识别精度 100%</div>
+          <div class="cog" style="--d:.2s;--d2:.9s"><h5>设备升级<b>0.48</b></h5><div class="q">换机悬置中：卡的是设备还是能力？</div><div class="bar"><b style="--v:48%;--d2:1s"></b></div><span class="open" style="position:static;margin-top:6px;display:inline-block">未闭合</span></div>
+          <div class="cog" style="--d:.4s"><h5>移松连我<b>0.79</b></h5><div class="q">主力机 → 迁移阵痛期</div><div class="bar"><b style="--v:79%"></b></div></div>
+          <div class="cog" style="--d:.6s"><h5>人外新坑<b>0.38</b></h5><div class="q">VTuber 出道设备筹备线索</div><div class="bar"><b style="--v:38%"></b></div></div>
+          <div class="cog" style="--d:.8s"><h5>VTuber出道<b>0.41</b></h5><div class="q">创作身份的第三条线</div><div class="bar"><b style="--v:41%"></b></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- S4 三层记忆 -->
+<section id="s4" class="scene s-paper">
+  <div class="en en-cap fu">Three Layers of Memory</div>
+  <h2 class="fu">记忆分成三层来织</h2>
+  <div class="fanstage" id="fanstage">
+    <div class="fan c1">
+      <h3>碎片层 <small>Fragments</small></h3>
+      <ul class="list">
+        <li>06-23 死机丢稿 <em>-0.7</em></li>
+        <li>06-25 备份迁移 <em>-0.2</em></li>
+        <li>07-05 「换台机器肯定顺」<em>+0.5</em></li>
+        <li>08-01 深夜赶稿 <em>+0.4</em></li>
+      </ul>
+      <p>每个事件带<b>情感坐标</b>——情绪越强的记忆衰减越慢</p>
+    </div>
+    <div class="fan c2">
+      <h3>线索层 <small>Threads</small></h3>
+      <ul class="list">
+        <li>设备升级 · 未闭合 <em>90天</em></li>
+        <li>Deadline 行为 <em>跟踪中</em></li>
+        <li>深夜情绪高峰 <em>跟踪中</em></li>
+        <li>创作双引擎 <em>已收线</em></li>
+      </ul>
+      <p>只登记<b>悬置的问题</b>，未闭合就一直在跟踪</p>
+    </div>
+    <div class="fan c3">
+      <h3>认识层 <small>Understanding</small></h3>
+      <ul class="list">
+        <li>她与创作 · 0.82 <em>改写×4</em></li>
+        <li>设备与创作 · 0.66 <em>反证×2</em></li>
+        <li>Deadline · 0.74 <em>边界</em></li>
+      </ul>
+      <p>带<b>证据结构的活文档</b>，敢修正自己</p>
+    </div>
+  </div>
+  <button class="btn-replay" id="fanReplay">重看翻起效果</button>
+</section>
+
+<!-- S5 文字 -->
+<section id="s5" class="scene s-light">
+  <div class="rings"></div>
+  <p class="big fu">同一句话，<em>两种</em>命运。</p>
+</section>
+
+<!-- S6 对比滑块 -->
+<section id="s6" class="scene s-paper2">
+  <div class="en en-cap fu">Memory Repair</div>
+  <h2 class="fu">同一句话，它接住的是整条线</h2>
+  <div class="cmp fu" id="cmpCard">
+    <div class="pane left">
+      <div class="ptag">普通 AI</div>
+      <p>好的，我记住了：你喜欢电脑。已添加标签 #数码 #开箱。</p>
+    </div>
+    <div class="pane right">
+      <div class="ptag">衔枝 TWIG</div>
+      <p>检测到历史认识冲突——旧认识：<b>「设备限制影响创造」</b>；新事件：限制解除。正在更新认识……90 天前的稿子，14 天前还在说「再等等」。今天，这条线收上了。</p>
+    </div>
+    <div class="vline"></div>
+    <div class="grab" id="cmpGrab"></div>
+    <div class="cfoot"><b>Memory Repair Test √</b>：旧限制解除 → 相关线索关闭 → 限制模型更新</div>
+  </div>
+  <p class="cap fu">普通系统存下标签 —— <b>衔枝记住了整件事的走向</b></p>
+</section>
+
+<!-- S7 粒子堆砌 -->
+<section id="s7" class="scene s-paper">
+  <div class="en en-cap fu">History Compression</div>
+  <h2 class="fu">过去 90 天，一次性装进三层记忆</h2>
+  <div class="counter fu" id="s7counter"><b id="cnt1423">0</b> 条消息</div>
+  <div class="pond fu">
+    <canvas id="pcanvas"></canvas>
+    <div class="tl"><span>2024-01-01</span><span>今天</span></div>
+    <div class="cols3">
+      <div class="col-meta"><span class="num">37</span><span class="lab">事件</span></div>
+      <div class="col-meta mid"><span class="num">12</span><span class="lab">长期线索</span></div>
+      <div class="col-meta warm"><span class="num">5</span><span class="lab">核心认识</span></div>
+    </div>
+  </div>
+  <button class="btn-replay" id="pReplay" style="margin-top:26px">重看粒子堆砌</button>
+</section>
+
+<!-- S8 认识层 -->
+<section id="s8" class="scene s-paper2">
+  <div class="app fu">
+    <aside class="app-side">
+      <div class="brand">衔枝<small>MEMORY</small></div>
+      <ul>
+        <li>总览</li><li>碎片 <em>37</em></li><li>线索 <em>12</em></li>
+        <li class="on">认识 <em>5</em></li><li>现场演示</li><li>判定日志 <em>86</em></li>
+      </ul>
+      <div class="theme-dots" data-mini></div>
+    </aside>
+    <div class="app-main">
+      <div class="app-top">
+        <div class="search">🔍 搜索碎片、线索、论断</div>
+        <div class="who"><b>灰线主创</b> · Pro 会员</div>
+        <div class="bell">🔔</div><div class="ava">灰</div>
+      </div>
+      <div>
+        <h3 style="font-size:20px">认识层 · 长程理解层</h3>
+        <p style="font-size:12px;color:var(--ink2);margin:6px 0 2px">改写式，不是叠加式——过去理解A → 新证据刷新解释 → 现在理解B</p>
+      </div>
+      <div class="cogrid">
+        <div class="ccard">
+          <h4>她与创作 <small>Living Narrative</small></h4>
+          <ul class="obs">
+            <li><b>写作+技术折腾是双引擎</b><div class="mini"><b style="--v:82%"></b></div><em>0.82</em></li>
+            <li><b>旧设备损耗影响输出</b><div class="mini"><b style="--v:66%"></b></div><em>0.66</em></li>
+            <li><b>Q2 赶 deadline 全部交付</b><div class="mini"><b style="--v:74%"></b></div><em>0.74</em></li>
+            <li><b>深夜是情绪高峰</b><div class="mini"><b style="--v:58%"></b></div><em>0.58</em></li>
+            <li><b>写作是职业身份而非爱好</b><div class="mini"><b style="--v:71%"></b></div><em>0.71</em></li>
+          </ul>
+        </div>
+        <div class="ccard ce">
+          <h4>反证检索 <small>Counter-Evidence</small></h4>
+          <ul class="obs">
+            <li><b>7-02 未动工但情绪平稳</b></li>
+            <li><b>7-19 纯娱乐周期</b></li>
+            <li><b>8-11 折腾动机外移</b></li>
+            <li><b>8-30 主动降低强度</b></li>
+          </ul>
+          <div class="ce-btn"><button>确认是反证</button><button>反向确认</button></div>
+        </div>
+        <div class="ccard">
+          <h4>防漂移机制 <small>Anti-Drift</small></h4>
+          <div class="drift"><span>证据锁定</span><span>反证搜索</span><span>conviction 分数</span><span>盲导审</span></div>
+        </div>
+        <div class="ccard wall">
+          <h4>论断权限墙 <small>Assertion Gate</small></h4>
+          <p>只记录事实，不生成论断</p>
+        </div>
+        <div class="ccard">
+          <h4>本周漂移审计 · 盲推导 <small>Audit</small></h4>
+          <div class="audit">
+            <div class="row"><span>品控<b>6.8%</b></span><div class="bar"><b style="--v:6.8%"></b></div></div>
+            <div class="row"><span>节奏<b>6.2%</b></span><div class="bar"><b style="--v:6.2%"></b></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="hint">不是标签画像 —— <b>每条论断带着证据 · 反证 · 边界条件存活</b></div>
+    </div>
+  </div>
+</section>
+
+<!-- S9 现场演示 -->
+<section id="s9" class="scene s-paper">
+  <div class="app app-solo fu">
+    <div class="app-main" style="padding:20px 22px">
+      <div class="app-top">
+        <div class="search">🔍 搜索碎片、线索、论断</div>
+        <div class="who"><b>灰线主创</b> · Pro 会员</div>
+        <div class="bell">🔔</div><div class="ava">灰</div>
+      </div>
+      <div class="axis" id="axis9">
+        <div class="node on"><i class="ic">✓</i><span>现场核对</span></div>
+        <div class="node"><i class="ic">↺</i><span>历史回溯</span></div>
+        <div class="node"><i class="ic">◈</i><span>状态回收</span></div>
+        <div class="node"><i class="ic">✓</i><span>收尾</span></div>
+      </div>
+      <h3 style="font-size:19px">现在，轮到你拆台</h3>
+      <div class="demo-wrap">
+        <div class="flow" id="demoFlow"></div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div class="concl">
+            <div class="cc"><h5>创造驱动力<b>0.82</b></h5><p>压力越大越倾向「做点什么新东西」</p></div>
+            <div class="cc"><h5>设备与创作<b>0.66</b></h5><p>旧限制解除，等待新观察</p></div>
+            <div class="cc"><h5>Deadline 行为<b>0.74</b></h5><p>三次延后但全部交付</p></div>
+          </div>
+          <div class="surrender">它敢认怂。<b>发现冲突 → 降低置信 → 修改认识</b> / 推理链全程留痕</div>
+        </div>
+      </div>
+      <div class="ioarea">
+        <input id="s9input" placeholder="不说「电脑」两个字，看系统能不能听懂——">
+        <button class="send" id="s9send">➤</button>
+      </div>
+      <button class="btn-replay" id="demoReplay" style="margin-top:14px;align-self:flex-start">重演对话</button>
+    </div>
+  </div>
+</section>
+
+<!-- S10 草蛇灰线 -->
+<section id="s10" class="scene s-deep">
+  <div class="papers" id="papers"></div>
+  <div class="spot"></div>
+  <div class="reveal-card">
+    <div class="rc-top">7:00 · 伏笔回收</div>
+    <h2>草蛇灰线 · 现场显影</h2>
+    <div class="rc-desc">45 天前登记的不是那句话，是它悬置的问题</div>
+    <div class="rc-div"></div>
+    <div class="tline">
+      <div class="lab">VERIFIED</div>
+      <div class="axisline">
+        <i class="ev" style="left:6%;--d:2.2s" data-t="6月23日"><span>登记问题：<br>「卡住她的是设备还是能力？」<br><small style="color:#8b8574">关联 龙脉·设备升级 90天</small></span></i>
+        <i class="ev" style="left:48%;--d:2.9s" data-t="7月5日"><span>「换台机器肯定顺」</span></i>
+        <i class="ev" style="left:88%;--d:3.6s" data-t="今天"><span>卡点解除 · 闭环</span></i>
+      </div>
+    </div>
+    <div class="tline gray" style="margin-bottom:64px">
+      <div class="lab">PLANNED</div>
+      <div class="axisline">
+        <i class="ev" style="left:2%;--d:2.5s" data-t="5月9日"></i>
+        <i class="ev" style="left:50%;--d:3.0s" data-t="7月24日"></i>
+        <i class="ev" style="left:92%;--d:3.5s" data-t="8月1日"></i>
+      </div>
+    </div>
+    <div class="corner" style="left:30px;bottom:20px">5月</div>
+    <div class="corner" style="right:30px;bottom:20px" id="cJun">6月1日</div>
+    <div class="prog">0项 · 12/15</div>
+    <div class="stampbox">
+      <div class="stamp" id="stamp">叙事<br>闭环</div>
+      <small id="stampSub">盘根拨节 · 伏脉千里</small>
+    </div>
+  </div>
+</section>
+
+<!-- S11 评测 -->
+<section id="s11" class="scene s-paper">
+  <div class="en en-cap fu">Benchmarked · Not Demo</div>
+  <h2 class="fu">真实评测，敢把数字摆出来</h2>
+  <div class="stage" id="bstage">
+    <div class="big035" id="big035">0.035</div>
+    <div class="bench" id="bench">
+      <div class="b">
+        <div class="n" data-count="0.640">0.000</div>
+        <h5>LoCoMo 事实底座</h5>
+        <p>双口径过线<br>高于 mem0 参照</p>
+      </div>
+      <div class="b gold">
+        <div class="n" data-count="0.856">0.000</div>
+        <h5>LongMemEval-S · Overall</h5>
+        <p>长程记忆评测总分</p>
+      </div>
+      <div class="b">
+        <div class="n" data-count="22" data-total="22">0 / 22</div>
+        <h5>冲突响应评测</h5>
+        <p>反证必回应，认怂不吞证据</p>
+      </div>
+    </div>
+    <canvas id="confetti"></canvas>
+  </div>
+  <button class="btn-replay" id="cReplay" style="margin-top:26px">重放纸屑</button>
+</section>
+
+<!-- S12 徽章 -->
+<section id="s12" class="scene s-dark">
+  <div class="badge"><span class="zi">衔</span><span class="curl">❦</span></div>
+  <div class="en bname fu">Twig Memory</div>
+</section>
+
+</main>
+
+<script>
+(function(){
+  "use strict";
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- 场景级错误隔离 ---------- */
+  window.__sceneErrors = [];
+  function sceneError(sec, e){
+    window.__sceneErrors.push({scene: sec.id, msg: String(e && e.message || e)});
+    var card = document.createElement('div');
+    card.className = 'scene-err';
+    card.textContent = '该场景展示出错：' + (e && e.message || e);
+    sec.appendChild(card);
+    sec.classList.add('has-err');
+  }
+
+  /* ---------- 主题色圆点 ---------- */
+  var themes = ['#2b4237','#34506b','#5a4a6b','#6b3a34','#3a5a46','#4a4a4a'];
+  document.querySelectorAll('.theme-dots').forEach(function(box){
+    themes.forEach(function(c){
+      var i = document.createElement('i');
+      i.style.background = c;
+      i.title = '切换主题色';
+      i.addEventListener('click', function(){
+        document.documentElement.style.setProperty('--theme', c);
+        document.querySelectorAll('.theme-dots i').forEach(function(d){d.style.outline='none'});
+        i.style.outline = '2px solid #fff';
+      });
+      box.appendChild(i);
+    });
+  });
+
+  /* ---------- 侧栏导航高亮 ---------- */
+  var links = document.querySelectorAll('#navList a');
+  links.forEach(function(a){ a.addEventListener('click', function(e){ e.preventDefault(); document.getElementById(a.dataset.t).scrollIntoView({behavior:'smooth'}); }); });
+  var navMap = {};
+  links.forEach(function(a){ navMap[a.dataset.t] = a; });
+
+  /* ---------- 通用 reveal ---------- */
+  var inited = {};
+  var INIT = {}; // 每场景初始化函数注册表（后文填充）
+
+  function enterScene(sec){
+    sec.classList.add('in');
+    if(!inited[sec.id] && INIT[sec.id]){
+      inited[sec.id] = true;
+      try{ INIT[sec.id](sec); }catch(e){ sceneError(sec, e); }
+    }
+  }
+
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(en){ if(en.isIntersecting) enterScene(en.target); });
+  }, {threshold:.22});
+  document.querySelectorAll('.scene').forEach(function(s){ io.observe(s); });
+
+  /* 深链定位（供验证/分享） */
+  if(location.hash){ var h = document.querySelector(location.hash); if(h) setTimeout(function(){ h.scrollIntoView(); }, 60); }
+
+  /* ---------- 数字滚动 ---------- */
+  function rollNum(el, to, dur, dec, suffix){
+    dec = dec||0; suffix = suffix||'';
+    var t0 = null;
+    function step(t){
+      if(!t0) t0 = t;
+      var p = Math.min((t-t0)/ (dur||1200), 1);
+      var v = to * (1-Math.pow(1-p,3));
+      el.textContent = v.toFixed(dec) + suffix;
+      if(p<1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  /* ============ S3 记忆装载 ============ */
+  var s3done = false;
+  INIT.s3 = function(){
+    if(s3done) return; s3done = true;
+    var nodes = document.querySelectorAll('#axis .node');
+    nodes.forEach(function(n,i){ setTimeout(function(){ n.classList.add('on'); }, 350*i+200); });
+    rollNum(document.getElementById('n32'),32,900);
+    rollNum(document.getElementById('n12'),12,900);
+    rollNum(document.getElementById('n3'),3,900);
+  };
+  function s3reply(text){
+    var box = document.getElementById('s3reply');
+    box.style.display = 'block';
+    box.innerHTML = '<b>系统</b>：' + text;
+  }
+  document.getElementById('presetBtn').addEventListener('click', function(){
+    s3reply('检测到「设备升级」相关历史认识，正在比对 90 天线索……<br>已新增事件并挂载到线索 <b>设备升级（未闭合）</b>。');
+  });
+  function s3submit(){
+    var v = document.getElementById('s3input').value.trim();
+    if(!v) return;
+    s3reply('已记录：「' + v.replace(/</g,'&lt;') + '」—— 走通用判定流程，生成碎片并检索关联线索。');
+    document.getElementById('s3input').value='';
+  }
+  document.getElementById('s3send').addEventListener('click', s3submit);
+  document.getElementById('s3input').addEventListener('keydown', function(e){ if(e.key==='Enter') s3submit(); });
+
+  /* ============ S4 翻起重播 ============ */
+  document.getElementById('fanReplay').addEventListener('click', function(){
+    var s = document.getElementById('s4');
+    s.classList.remove('in');
+    void s.offsetWidth;
+    requestAnimationFrame(function(){ s.classList.add('in'); });
+  });
+
+  /* ============ S6 对比滑块 ============ */
+  (function(){
+    var card = document.getElementById('cmpCard');
+    var grab = document.getElementById('cmpGrab');
+    var vline = card.querySelector('.vline');
+    var left = card.querySelector('.pane.left');
+    var right = card.querySelector('.pane.right');
+    function setPct(p){
+      p = Math.max(8, Math.min(92, p));
+      var x = p + '%';
+      grab.style.left = x; vline.style.left = x;
+      /* 分割：右半内容从 p 右侧开始可见 */
+      right.style.clipPath = 'inset(0 0 0 ' + p + '%)';
+      left.style.clipPath = 'inset(0 ' + (100-p) + '% 0 0)';
+      left.style.opacity = p > 70 ? .45 : 1;
+      right.style.opacity = p < 30 ? .45 : 1;
+    }
+    setPct(50);
+    var dragging = false;
+    function moveE(e){
+      if(!dragging) return;
+      var r = card.getBoundingClientRect();
+      var cx = (e.touches ? e.touches[0].clientX : e.clientX);
+      setPct((cx - r.left)/r.width*100);
+      e.preventDefault();
+    }
+    grab.addEventListener('mousedown', function(){ dragging=true; });
+    grab.addEventListener('touchstart', function(){ dragging=true; }, {passive:true});
+    window.addEventListener('mousemove', moveE);
+    window.addEventListener('touchmove', moveE, {passive:false});
+    window.addEventListener('mouseup', function(){ dragging=false; });
+    window.addEventListener('touchend', function(){ dragging=false; });
+    /* 拖尾提示：轻微自动摆动一次，提示可拖（非持续播放） */
+    if(!reduceMotion){
+      setTimeout(function(){
+        setPct(58); setTimeout(function(){ setPct(50); }, 480);
+      }, 1400);
+    }
+  })();
+
+  /* ============ S7 粒子堆砌 ============ */
+  var p7 = { played:false };
+  INIT.s7 = function(sec){ startParticles(sec); };
+  function startParticles(sec){
+    var cv = document.getElementById('pcanvas');
+    var ctx = cv.getContext('2d');
+    var W, H, dpr = Math.min(window.devicePixelRatio||1, 2);
+    function resize(){
+      W = cv.clientWidth; H = 340;
+      cv.width = W*dpr; cv.height = H*dpr;
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+    }
+    resize();
+    var cols = [
+      {cx:.22, w:70, target:.60, pal:['#2b4237','#a0802f','#3d5a4a','#c9a44a']},
+      {cx:.50, w:70, target:.40, pal:['#3d5a4a','#c9a44a']},
+      {cx:.78, w:64, target:.18, pal:['#c9a44a','#d8b06a']}
+    ];
+    var flying = [], landed = [], done = {n:0}, settle = 0, raf = null;
+    var PS = 6;
+    function colX(i){ return cols[i].cx*W; }
+    function stackTop(i){
+      var col = cols[i];
+      var rows = Math.max(1, Math.round(col.target*H/PS));
+      var filled = landed.filter(function(p){return p.c===i;}).length;
+      var need = rows * Math.max(1, Math.round(col.w/PS));
+      return H - (filled/need)*col.target*H;
+    }
+    function spawn(){
+      cols.forEach(function(col,i){
+        var rows = Math.round(col.target*H/PS);
+        var need = rows * Math.max(1, Math.round(col.w/PS));
+        var have = landed.filter(function(p){return p.c===i;}).length + flying.filter(function(p){return p.c===i;}).length;
+        if(have < need){
+          var n = 5;
+          for(var k=0;k<n;k++){
+            flying.push({
+              c:i,
+              x: colX(i) + (Math.random()-.5)*col.w*.8,
+              y: -8 - Math.random()*90,
+              vx: (Math.random()-.5)*.6,
+              vy: 1.2+Math.random()*1.6,
+              color: col.pal[Math.floor(Math.random()*col.pal.length)]
+            });
+          }
+        }
+      });
+    }
+    function tick(){
+      ctx.clearRect(0,0,W,H);
+      if(!reduceMotion) spawn();
+      /* 飞行粒子 */
+      for(var i=flying.length-1;i>=0;i--){
+        var p = flying[i];
+        p.vy += .085; p.x += p.vx; p.y += p.vy;
+        var topY = stackTop(p.c);
+        var spread = (landed.filter(function(q){return q.c===p.c;}).length % 2) ? PS*.5 : 0;
+        if(p.y >= topY - PS && Math.abs(p.x - colX(p.c)) <= cols[p.c].w/2){
+          landed.push({c:p.c, x:p.x, y: topY-PS, color:p.color});
+          flying.splice(i,1);
+          continue;
+        }
+        if(p.y > H+20){ flying.splice(i,1); continue; }
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x-PS/2, p.y-PS/2, PS, PS);
+      }
+      /* 已堆积粒子 */
+      landed.forEach(function(p){
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x-PS/2, p.y-PS/2, PS, PS);
+      });
+      /* 凝聚：粒子充足后叠加实心柱淡入 */
+      var totalNeed = 0, totalHave = 0;
+      cols.forEach(function(col,i){
+        var rows = Math.round(col.target*H/PS);
+        var need = rows * Math.round(col.w/PS);
+        totalNeed += need;
+        totalHave += landed.filter(function(p){return p.c===i;}).length;
+      });
+      if(reduceMotion || totalHave >= totalNeed*.98){
+        settle = Math.min(settle + .02, 1);
+        cols.forEach(function(col,i){
+          var x = colX(i)-col.w/2, h = col.target*H;
+          ctx.globalAlpha = settle;
+          var g = ctx.createLinearGradient(0,H-h,0,H);
+          var c1 = i===0?'#2b4237':(i===1?'#3d5a4a':'#a0802f');
+          var c2 = i===0?'#3d5a4a':(i===1?'#5a7a64':'#c9a44a');
+          g.addColorStop(0,c1); g.addColorStop(1,c2);
+          ctx.fillStyle = g;
+          ctx.fillRect(x, H-h, col.w, h);
+          ctx.globalAlpha = 1;
+        });
+        if(settle>=1){
+          sec.classList.add('settled');
+          raf && cancelAnimationFrame(raf); raf = null;
+          return;
+        }
+      }
+      raf = requestAnimationFrame(tick);
+    }
+    rollNum(document.getElementById('cnt1423'), 1423, 1600);
+    setTimeout(function(){ raf = requestAnimationFrame(tick); }, reduceMotion?0:1500);
+  }
+  document.getElementById('pReplay').addEventListener('click', function(){
+    var s = document.getElementById('s7');
+    s.classList.remove('settled');
+    var pond = s.querySelector('.pond');
+    var cv = document.getElementById('pcanvas');
+    cv.getContext('2d').clearRect(0,0,cv.width,cv.height);
+    rollNum(document.getElementById('cnt1423'), 1423, 1200);
+    startParticles(s);
+  });
+
+  /* ============ S9 现场演示 ============ */
+  var demoTimer = null;
+  function buildDemo(){
+    var flow = document.getElementById('demoFlow');
+    flow.innerHTML = '';
+    var steps = [
+      {t:'u', x:'我终于换电脑了'},
+      {t:'s', x:'已记录：设备升级事件。 <span class="tags"><i style="--d:.1s">#数码</i><i style="--d:.3s">#开箱</i></span>'},
+      {t:'c', h:'检测到历史认识冲突', x:'旧认识：「设备限制影响创造」 vs 新事件：限制解除。<br>关联：90 天前死机丢稿 · 14 天前「再等等」 · 今天收线', warn:1},
+      {t:'s', x:'自动提炼标签：<span class="tags"><i style="--d:.1s">#喜欢AI</i><i style="--d:.3s">#喜欢编程</i><i style="--d:.5s">#喜欢写作</i><i style="--d:.7s">#夜猫子</i><i style="--d:.9s">#学生</i></span>'},
+      {t:'c', h:'行为模式', x:'技术折腾与写作是她的双引擎：压力越大，越倾向用『做点什么新东西』来重建掌控感。', conf:1},
+      {t:'u', x:'最近我其实没有那么想折腾技术了'},
+      {t:'c', h:'认识下调', x:'暂不做最终结论，等待后续信息验证。', drop:1}
+    ];
+    var delays = [300, 1200, 2100, 3600, 4600, 6000, 7000];
+    steps.forEach(function(st, i){
+      var el;
+      if(st.t==='u' || st.t==='s'){
+        el = document.createElement('div');
+        el.className = 'msg ' + st.t;
+        el.innerHTML = st.x;
+      }else{
+        el = document.createElement('div');
+        el.className = 'syscard' + (st.warn?' warn':'');
+        var inner = st.h ? '<h6>'+st.h+'</h6>' : '';
+        inner += '<div>'+st.x+'</div>';
+        if(st.conf){
+          inner += '<div class="conf"><div class="bar"><b></b></div><em>0.82</em></div>';
+        }
+        if(st.drop){
+          inner += '<div class="conf"><div class="bar"><b id="dropBar"></b></div><em id="dropNum">0.82</em></div><div style="font-size:10.5px;color:var(--ink2);margin-top:6px">置信度下调：0.82 → 0.57</div>';
+        }
+        el.innerHTML = inner;
+      }
+      flow.appendChild(el);
+      setTimeout(function(){
+        el.classList.add('show');
+        if(st.conf){
+          var b = el.querySelector('.conf .bar b');
+          requestAnimationFrame(function(){ b.style.width='82%'; });
+        }
+        if(st.drop){
+          var b2 = el.querySelector('#dropBar');
+          requestAnimationFrame(function(){ b2.style.width='57%'; });
+          var em = el.querySelector('#dropNum');
+          var t0=null;
+          function anim(ts){
+            if(!t0)t0=ts;
+            var p = Math.min((ts-t0)/1400,1);
+            var v = 0.82 - (0.82-0.57)*p;
+            em.textContent = v.toFixed(2);
+            if(p<1) requestAnimationFrame(anim);
+          }
+          requestAnimationFrame(anim);
+        }
+      }, delays[i]);
+    });
+    /* 进度轴第二步点亮 */
+    setTimeout(function(){
+      var n2 = document.querySelectorAll('#axis9 .node')[1];
+      n2 && n2.classList.add('on');
+    }, 2200);
+  }
+  INIT.s9 = function(){ buildDemo(); };
+  document.getElementById('demoReplay').addEventListener('click', function(){ buildDemo(); });
+  function s9submit(){
+    var inp = document.getElementById('s9input');
+    var v = inp.value.trim(); if(!v) return;
+    var flow = document.getElementById('demoFlow');
+    var u = document.createElement('div');
+    u.className='msg u show'; u.textContent = v;
+    flow.appendChild(u);
+    setTimeout(function(){
+      var s = document.createElement('div');
+      s.className='msg s show';
+      s.textContent = '已记录（演示环境）：挂载为新碎片，走通用判定流程。';
+      flow.appendChild(s);
+    }, 600);
+    inp.value='';
+  }
+  document.getElementById('s9send').addEventListener('click', s9submit);
+  document.getElementById('s9input').addEventListener('keydown', function(e){ if(e.key==='Enter') s9submit(); });
+
+  /* ============ S10 印章 & 纸层 ============ */
+  (function(){
+    var papers = document.getElementById('papers');
+    for(var i=0;i<9;i++){
+      var p = document.createElement('i');
+      p.style.width = (140+Math.random()*220)+'px';
+      p.style.height = (90+Math.random()*160)+'px';
+      p.style.left = (Math.random()*90)+'%';
+      p.style.top = (Math.random()*90)+'%';
+      p.style.transform = 'rotate('+(Math.random()*50-25)+'deg)';
+      papers.appendChild(p);
+    }
+    var stamp = document.getElementById('stamp'), sub = document.getElementById('stampSub');
+    setTimeout(function(){
+      if(stamp.classList.contains('stamped')) return;
+      stamp.classList.add('stamped'); sub.classList.add('on');
+    }, reduceMotion?0:2600);
+    stamp.addEventListener('click', function(){
+      stamp.classList.remove('stamped'); sub.classList.remove('on');
+      setTimeout(function(){ stamp.classList.add('stamped'); sub.classList.add('on'); }, 320);
+    });
+  })();
+
+  /* ============ S11 评测 + 纸屑 ============ */
+  var confettiRan = false;
+  INIT.s11 = function(sec){
+    setTimeout(function(){
+      sec.classList.add('gone');
+      document.querySelectorAll('#bench .n').forEach(function(n){
+        var to = parseFloat(n.dataset.count);
+        var total = n.dataset.total;
+        if(total){
+          var t0=null;
+          function anim(ts){
+            if(!t0)t0=ts;
+            var p=Math.min((ts-t0)/1300,1);
+            n.textContent = Math.round(to*p) + ' / ' + total;
+            if(p<1) requestAnimationFrame(anim);
+          }
+          requestAnimationFrame(anim);
+        }else{
+          rollNum(n, to, 1300, 3);
+        }
+      });
+      if(!confettiRan){ confettiRan = true; setTimeout(fireConfetti, 900); }
+    }, reduceMotion?0:1600);
+  };
+  document.getElementById('cReplay').addEventListener('click', fireConfetti);
+  function fireConfetti(){
+    var cv = document.getElementById('confetti');
+    var stage = document.getElementById('bstage');
+    var ctx = cv.getContext('2d');
+    var dpr = Math.min(window.devicePixelRatio||1,2);
+    cv.width = stage.clientWidth*dpr; cv.height = stage.clientHeight*dpr;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    var W = stage.clientWidth, H = stage.clientHeight;
+    var colors = ['#b68735','#d8b06a','#a63c2e','#3d5a4a','#7a9ec2','#c9a44a'];
+    var parts = [];
+    for(var i=0;i<130;i++){
+      parts.push({
+        x: W/2 + (Math.random()-.5)*60, y: H/2,
+        vx: (Math.random()-.5)*11, vy: -4-Math.random()*7,
+        s: 3+Math.random()*4, r: Math.random()*Math.PI, vr:(Math.random()-.5)*.3,
+        c: colors[Math.floor(Math.random()*colors.length)], life: 1
+      });
+    }
+    var t0 = null;
+    function tick(ts){
+      if(!t0) t0 = ts;
+      var el = ts - t0;
+      ctx.clearRect(0,0,W,H);
+      parts.forEach(function(p){
+        p.vy += .18; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+        if(el > 2400) p.life -= .03;
+        ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.r);
+        ctx.globalAlpha = Math.max(p.life,0);
+        ctx.fillStyle = p.c; ctx.fillRect(-p.s/2,-p.s/2,p.s,p.s*.6);
+        ctx.restore();
+      });
+      if(el < 3400) requestAnimationFrame(tick);
+      else ctx.clearRect(0,0,W,H);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  /* window 级错误只记录，不吞页面 */
+  window.addEventListener('error', function(e){
+    window.__sceneErrors.push({scene:'window', msg:String(e.message)});
+    return false;
+  });
+})();
+</script>
+</body>
+</html>
